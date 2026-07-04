@@ -30,9 +30,12 @@ async function apiFetch(path, options = {}) {
     }
 
     if (res.status === 401) {
-        clearToken();
-        window.location.href = 'index.html';
-        return null;
+        if (getToken()) {
+            clearToken();
+            window.location.href = 'index.html';
+            return null;
+        }
+        throw new Error('Invalid credentials');
     }
 
     const data = await res.json().catch(() => ({}));
