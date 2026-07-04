@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+
+    <div class="login-card">
+        <div class="login-brand">
+            <img src="images/logo.svg" class="brand-logo" alt="Reliavolt Supply">
+            <h1>Reliavolt <span class="brand-supply">Supply</span></h1>
+            <p class="slogan">"We Go For Value"</p>
+        </div>
+
+        <p class="login-form-title">Sign in to your account</p>
+
+        <div class="input-group">
+            <label for="username">Username</label>
+            <div class="input-with-icon">
+                <span class="icon">👤</span>
+                <input type="text" id="username" placeholder="Enter your username" autocomplete="username">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="password">Password</label>
+            <div class="input-with-icon">
+                <span class="icon">🔒</span>
+                <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+            </div>
+        </div>
+
+        <button class="btn-login" id="loginBtn">Sign In &rarr;</button>
+
+        <div class="login-error" id="loginError">Invalid username or password. Please try again.</div>
+
+        <div class="login-demo-hint">
+            Admin: <strong>admin / admin123</strong> &nbsp;&bull;&nbsp;
+            Driver: <strong>sorie / driver123</strong>
+        </div>
+
+        <div class="login-footer">
+            &copy; 2025 Reliavolt Supply &bull; Inventory Management System v1.0
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+<script src="js/app.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>
+
+
+

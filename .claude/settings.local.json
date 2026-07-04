@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Recurse \"c:\\\\Users\\\\BANGS\\\\OneDrive\\\\RELIAVOLT SUPPLY\\\\INVENTORY\\\\Reliavolt-Inventory-Frontend\" | Where-Object { -not $_.PSIsContainer } | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"c:\\\\Users\\\\BANGS\\\\OneDrive\\\\RELIAVOLT SUPPLY\\\\INVENTORY\\\\Reliavolt-Inventory-Frontend\\\\\", \"\"\\) })",
+      "PowerShell(Get-ChildItem -Recurse \"c:\\\\Users\\\\BANGS\\\\OneDrive\\\\RELIAVOLT SUPPLY\\\\INVENTORY\\\\Reliavolt-Inventory-Frontend\" | Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.FullName.Replace\\(\"c:\\\\Users\\\\BANGS\\\\OneDrive\\\\RELIAVOLT SUPPLY\\\\INVENTORY\\\\Reliavolt-Inventory-Frontend\\\\\", \"\"\\) } | Sort-Object)"
+    ]
+  }
+}

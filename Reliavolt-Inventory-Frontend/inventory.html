@@ -1,0 +1,248 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/inventory.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item active">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Inventory</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <span id="currentUser">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Stats Bar -->
+            <div class="inv-stats-bar">
+                <div class="inv-stat-pill pill-all" data-stock-filter="all">
+                    <span class="pill-dot"></span>
+                    All: <strong id="statTotal">0</strong>
+                </div>
+                <div class="inv-stat-pill pill-in" data-stock-filter="in">
+                    <span class="pill-dot"></span>
+                    In Stock: <strong id="statInStock">0</strong>
+                </div>
+                <div class="inv-stat-pill pill-low" data-stock-filter="low">
+                    <span class="pill-dot"></span>
+                    Low Stock: <strong id="statLowStock">0</strong>
+                </div>
+                <div class="inv-stat-pill pill-out" data-stock-filter="out">
+                    <span class="pill-dot"></span>
+                    Out of Stock: <strong id="statOutStock">0</strong>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="inventory-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-bar">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchProduct" placeholder="Search products...">
+                    </div>
+                    <select class="filter-select" id="categoryFilter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-primary" id="addProductBtn">
+                        ➕ Add Product
+                    </button>
+                </div>
+            </div>
+
+            <!-- Product Table -->
+            <div class="product-table-card">
+                <div class="table-wrapper">
+                    <table class="product-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Cost Price</th>
+                                <th>Selling Price</th>
+                                <th>Profit/Unit</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                            <tr><td colspan="9"><div class="empty-state"><span class="empty-icon">📦</span><p>Loading products...</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination">
+                    <span class="pagination-info" id="paginationInfo">Loading...</span>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Add / Edit Product Modal -->
+<div class="modal-overlay" id="productModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle">Add New Product</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="productForm" novalidate>
+                <p class="modal-section-title">Basic Information</p>
+
+                <div class="form-group">
+                    <label class="form-label" for="productName">Product Name *</label>
+                    <input type="text" class="form-control" id="productName" placeholder="e.g. LED Bulb 9W" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="productCategory">Category *</label>
+                        <input type="text" class="form-control" id="productCategory" placeholder="e.g. Lighting" list="categoryList" required>
+                        <datalist id="categoryList">
+                            <option value="Lighting">
+                            <option value="Cables">
+                            <option value="Accessories">
+                            <option value="Protection">
+                            <option value="Fittings">
+                            <option value="Conduits">
+                            <option value="Solar & Power">
+                            <option value="Appliances">
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="productBrand">Brand *</label>
+                        <input type="text" class="form-control" id="productBrand" placeholder="e.g. Philips" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="productIcon">Icon / Emoji</label>
+                    <input type="text" class="form-control" id="productIcon" placeholder="e.g. 💡" maxlength="4" value="📦">
+                </div>
+
+                <p class="modal-section-title" style="margin-top:1rem;">Pricing &amp; Stock</p>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="productCost">Cost Price (Le) *</label>
+                        <input type="number" class="form-control" id="productCost" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="productSelling">Selling Price (Le) *</label>
+                        <input type="number" class="form-control" id="productSelling" placeholder="0" min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="productQuantity">Quantity in Stock *</label>
+                    <input type="number" class="form-control" id="productQuantity" placeholder="0" min="0" required>
+                </div>
+
+                <div class="price-preview">
+                    <div class="price-preview-row">
+                        <span>Cost Price:</span>
+                        <span id="previewCost">Le 0</span>
+                    </div>
+                    <div class="price-preview-row">
+                        <span>Selling Price:</span>
+                        <span id="previewSelling">Le 0</span>
+                    </div>
+                    <div class="price-preview-row profit-row">
+                        <span>Profit per Unit:</span>
+                        <span id="previewProfit">Le 0 (0%)</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="saveProductBtn">Save Product</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/inventory.js"></script>
+</body>
+</html>
+
+
+

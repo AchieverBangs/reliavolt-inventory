@@ -1,0 +1,326 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/sales.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item active">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Sales</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <span id="currentUser">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <div class="sales-layout">
+
+                <!-- Sales Form -->
+                <div>
+                    <div class="sales-form-card">
+                        <div class="sales-form-header">
+                            <h2>Record New Sale</h2>
+                            <p>Fill in the details below to record a sale</p>
+                        </div>
+                        <div class="sales-form-body">
+
+                            <div class="form-group">
+                                <label class="form-label" for="saleShop">Shop / Branch *</label>
+                                <select class="form-control" id="saleShop">
+                                    <option value="">-- Select Shop --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="productSelect">Select Product *</label>
+                                <select class="form-control" id="productSelect">
+                                    <option value="">-- Select a Product --</option>
+                                </select>
+                            </div>
+
+                            <div id="productInfo" style="display:none;margin-bottom:1rem;"></div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="saleQty">Quantity *</label>
+                                    <input type="number" class="form-control" id="saleQty" value="1" min="1" placeholder="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="customerName">Customer Name</label>
+                                    <input type="text" class="form-control" id="customerName" placeholder="Walk-in Customer" list="customerList">
+                                    <datalist id="customerList"></datalist>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Payment Method *</label>
+                                <div class="payment-methods">
+                                    <button class="payment-method-btn active" data-method="Cash">
+                                        <span class="payment-icon">💵</span>
+                                        Cash
+                                    </button>
+                                    <button class="payment-method-btn" data-method="Mobile Money">
+                                        <span class="payment-icon">📱</span>
+                                        Mobile Money
+                                    </button>
+                                    <button class="payment-method-btn" data-method="Bank Transfer">
+                                        <span class="payment-icon">🏦</span>
+                                        Bank Transfer
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="amount-display">
+                                <div class="amount-row">
+                                    <span class="amount-label">Unit Price</span>
+                                    <span class="amount-value" id="displayUnitPrice">Le 0</span>
+                                </div>
+                                <div class="amount-row">
+                                    <span class="amount-label">Quantity</span>
+                                    <span class="amount-value" id="displayQty">1</span>
+                                </div>
+                                <div class="amount-row">
+                                    <span class="amount-label">Cost (Total)</span>
+                                    <span class="amount-value" id="displayCost">Le 0</span>
+                                </div>
+                                <div class="amount-row profit-row">
+                                    <span class="amount-label">Profit</span>
+                                    <span class="amount-value" id="displayProfit">Le 0</span>
+                                </div>
+                                <div class="amount-row total-row">
+                                    <span class="amount-label">Total Amount</span>
+                                    <span class="amount-value" id="displayTotal">Le 0</span>
+                                </div>
+                            </div>
+
+                            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                                <button class="btn btn-success btn-lg" id="recordSaleBtn" style="flex:1;">
+                                    ✅ Record Sale
+                                </button>
+                                <button class="btn btn-secondary" id="newSaleBtn">
+                                    🔄 Reset
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Receipt -->
+                <div>
+                    <div class="receipt-card">
+                        <div class="receipt-header">
+                            <h3>🧾 Receipt Preview</h3>
+                        </div>
+                        <div class="receipt-preview">
+                            <div class="receipt-paper">
+                                <div class="receipt-brand">
+                                    <img src="images/logo.svg" class="receipt-logo" alt="Reliavolt Supply">
+                                    <strong class="r-title" id="receiptCompanyName">Reliavolt Supply</strong>
+                                    <span class="r-slogan">"We Go For Value"</span>
+                                </div>
+
+                                <div class="receipt-meta">
+                                    <div class="receipt-meta-row">
+                                        <span>Receipt No:</span>
+                                        <strong id="receiptNo">—</strong>
+                                    </div>
+                                    <div class="receipt-meta-row">
+                                        <span>Date:</span>
+                                        <span id="receiptDate">—</span>
+                                    </div>
+                                    <div class="receipt-meta-row">
+                                        <span>Customer:</span>
+                                        <span id="receiptCustomer">—</span>
+                                    </div>
+                                    <div class="receipt-meta-row">
+                                        <span>Payment:</span>
+                                        <span id="receiptPayment">Cash</span>
+                                    </div>
+                                </div>
+
+                                <hr class="receipt-divider">
+
+                                <div class="receipt-item-row">
+                                    <span id="receiptProductName">—</span>
+                                    <span id="receiptQty">1</span>
+                                </div>
+                                <div class="receipt-item-row">
+                                    <span>@ <span id="receiptUnitPrice">Le 0</span></span>
+                                </div>
+
+                                <hr class="receipt-divider">
+
+                                <div class="receipt-totals">
+                                    <div class="receipt-meta-row">
+                                        <span>Subtotal:</span>
+                                        <span id="receiptSubtotal">Le 0</span>
+                                    </div>
+                                    <div class="receipt-total-row" style="margin-top:0.4rem;">
+                                        <span>TOTAL:</span>
+                                        <strong id="receiptTotal">Le 0</strong>
+                                    </div>
+                                </div>
+
+                                <div class="receipt-footer-text" id="receiptFooterText">
+                                    Thank you for your business!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="receipt-actions">
+                            <button class="btn btn-primary" id="printReceiptBtn" style="flex:1;">
+                                🖨️ Print Receipt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Recent Sales -->
+            <div class="recent-sales-section">
+                <div class="section-header">
+                    <div class="section-title">Recent Sales</div>
+                    <a href="reports.html" class="btn btn-secondary btn-sm">Full Report</a>
+                </div>
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Receipt No</th>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                    <th>Profit</th>
+                                    <th>Payment</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentSalesBody">
+                                <tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded yet.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deleted Sales History — Admin Only -->
+            <div class="recent-sales-section" id="deletedSalesSection" style="display:none;">
+                <div class="section-header">
+                    <div>
+                        <div class="section-title">🗑️ Deleted Sales History</div>
+                        <div style="font-size:0.8rem;color:var(--text-light);margin-top:0.15rem;">Visible to Admin only — you can restore any deleted sale</div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" id="purgeAllBtn">🧹 Purge All</button>
+                </div>
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Receipt No</th>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                    <th>Payment</th>
+                                    <th>Deleted By</th>
+                                    <th>Deleted At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deletedSalesBody">
+                                <tr><td colspan="9"><div class="empty-state"><span class="empty-icon">✅</span><p>No deleted sales.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/sales.js"></script>
+</body>
+</html>
+
+
+

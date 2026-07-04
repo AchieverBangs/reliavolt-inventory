@@ -1,0 +1,338 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item active">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- ===== REGULAR DASHBOARD (hidden for Delivery Person) ===== -->
+            <div id="mainDashboard">
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <a href="sales.html" class="quick-action-btn">
+                        <span class="qa-icon">💰</span>
+                        <span>New Sale</span>
+                    </a>
+                    <a href="inventory.html" class="quick-action-btn">
+                        <span class="qa-icon">➕</span>
+                        <span>Add Product</span>
+                    </a>
+                    <a href="customers.html" class="quick-action-btn">
+                        <span class="qa-icon">👤</span>
+                        <span>Add Customer</span>
+                    </a>
+                    <a href="reports.html" class="quick-action-btn">
+                        <span class="qa-icon">📄</span>
+                        <span>View Reports</span>
+                    </a>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <a href="inventory.html" class="stat-card blue">
+                        <div class="stat-icon-wrap">📦</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Total Products</div>
+                            <div class="stat-value" id="statTotalProducts">0</div>
+                            <div class="stat-change" id="statProductsSub"></div>
+                            <div class="stat-link-hint">View Inventory &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="sales.html" class="stat-card green">
+                        <div class="stat-icon-wrap">💰</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Total Sales Today</div>
+                            <div class="stat-value currency" id="statSalesToday">Le 0</div>
+                            <div class="stat-change" id="statSalesTodaySub"></div>
+                            <div class="stat-link-hint">View Sales &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="reports.html" class="stat-card purple">
+                        <div class="stat-icon-wrap">📈</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Today's Profit</div>
+                            <div class="stat-value currency" id="statProfitToday">Le 0</div>
+                            <div class="stat-link-hint">View Reports &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="reports.html" class="stat-card orange">
+                        <div class="stat-icon-wrap">📅</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Monthly Profit</div>
+                            <div class="stat-value currency" id="statProfitMonthly">Le 0</div>
+                            <div class="stat-link-hint">View Reports &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="inventory.html#low" class="stat-card red">
+                        <div class="stat-icon-wrap">⚠️</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Low Stock Items</div>
+                            <div class="stat-value" id="statLowStock">0</div>
+                            <div class="stat-change down" id="statLowStockSub"></div>
+                            <div class="stat-link-hint">View Low Stock &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="inventory.html#out" class="stat-card indigo">
+                        <div class="stat-icon-wrap">🚫</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Out of Stock</div>
+                            <div class="stat-value" id="statOutStock">0</div>
+                            <div class="stat-change down" id="statOutStockSub"></div>
+                            <div class="stat-link-hint">View Out of Stock &rarr;</div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Dashboard Grid: Chart + Recent Sales -->
+                <div class="dashboard-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <a href="reports.html" class="chart-title chart-title-link">Sales Overview — Last 7 Days</a>
+                            <div class="chart-legend">
+                                <div class="legend-item"><div class="legend-dot sales"></div> Revenue</div>
+                                <div class="legend-item"><div class="legend-dot profit"></div> Profit</div>
+                            </div>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="recent-sales-card">
+                        <div class="recent-sales-header">
+                            <a href="sales.html" class="card-title card-title-link">Recent Sales</a>
+                            <a href="sales.html" class="btn btn-secondary btn-sm">View All</a>
+                        </div>
+                        <div class="recent-sales-list" id="recentSalesList">
+                            <div class="empty-state"><span class="empty-icon">🛒</span><p>No recent sales.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Low Stock Alert -->
+                <div class="low-stock-section">
+                    <div class="section-header">
+                        <div>
+                            <a href="inventory.html#low" class="section-title section-title-link">Low Stock &amp; Out of Stock Alerts</a>
+                            <div class="section-subtitle">Click a row to manage that item</div>
+                        </div>
+                        <a href="inventory.html" class="btn btn-primary btn-sm">Manage Inventory</a>
+                    </div>
+                    <div class="card">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Category</th>
+                                        <th>Brand</th>
+                                        <th>Quantity</th>
+                                        <th>Status</th>
+                                        <th>Selling Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lowStockTableBody">
+                                    <tr><td colspan="6"><div class="empty-state"><span class="empty-icon">✅</span><p>All items are stocked.</p></div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end #mainDashboard -->
+
+            <!-- ===== DRIVER DASHBOARD (shown only for Delivery Person) ===== -->
+            <div id="driverDashboard" class="hidden">
+
+                <!-- Welcome Banner -->
+                <div class="driver-welcome-banner">
+                    <div class="driver-welcome-icon">🚚</div>
+                    <div>
+                        <div class="driver-welcome-name" id="driverWelcomeName">Welcome</div>
+                        <div class="driver-welcome-shop" id="driverWelcomeShop">Loading shop info...</div>
+                    </div>
+                    <a href="delivery.html" class="btn btn-primary" style="margin-left:auto;">📋 View All Deliveries</a>
+                </div>
+
+                <!-- Driver Stats -->
+                <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-top:1.25rem;">
+                    <button class="stat-card orange drv-stat-link" onclick="document.getElementById('drvPendingBody').closest('.card').scrollIntoView({behavior:'smooth',block:'start'})">
+                        <div class="stat-icon-wrap">⏳</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Pending</div>
+                            <div class="stat-value" id="drvPending">0</div>
+                            <div class="stat-change">Tap to view ↓</div>
+                        </div>
+                    </button>
+                    <button class="stat-card blue drv-stat-link" onclick="document.getElementById('drvPendingBody').closest('.card').scrollIntoView({behavior:'smooth',block:'start'})">
+                        <div class="stat-icon-wrap">🚛</div>
+                        <div class="stat-body">
+                            <div class="stat-label">In Transit</div>
+                            <div class="stat-value" id="drvTransit">0</div>
+                            <div class="stat-change">Tap to view ↓</div>
+                        </div>
+                    </button>
+                    <button class="stat-card green drv-stat-link" onclick="document.getElementById('drvHistoryBody').closest('.card').scrollIntoView({behavior:'smooth',block:'start'})">
+                        <div class="stat-icon-wrap">✅</div>
+                        <div class="stat-body">
+                            <div class="stat-label">Delivered</div>
+                            <div class="stat-value" id="drvDelivered">0</div>
+                            <div class="stat-change">Tap to view ↓</div>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Pending Deliveries -->
+                <div class="low-stock-section" style="margin-top:1.5rem;">
+                    <div class="section-header">
+                        <div>
+                            <div class="section-title">Pending &amp; In-Transit Deliveries</div>
+                            <div class="section-subtitle">Deliveries that need your action</div>
+                        </div>
+                        <a href="delivery.html" class="btn btn-warning btn-sm">Manage All</a>
+                    </div>
+                    <div class="card">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Delivery No</th>
+                                        <th>Type</th>
+                                        <th>Destination</th>
+                                        <th>Items</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="drvPendingBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Past Deliveries -->
+                <div class="low-stock-section" style="margin-top:1.5rem;">
+                    <div class="section-header">
+                        <div>
+                            <div class="section-title">Past Deliveries</div>
+                            <div class="section-subtitle">Delivered and cancelled records</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Delivery No</th>
+                                        <th>Type</th>
+                                        <th>Destination</th>
+                                        <th>Items</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="drvHistoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end #driverDashboard -->
+
+        </main>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
+
+
+

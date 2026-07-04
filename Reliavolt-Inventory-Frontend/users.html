@@ -1,0 +1,271 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item active nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">User Management</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Admin Banner -->
+            <div class="admin-banner">
+                <span class="admin-banner-icon">🔐</span>
+                <div>
+                    <div class="admin-banner-title">Admin Only — User Management</div>
+                    <div class="admin-banner-sub">Create accounts, assign roles and shop access for your staff</div>
+                </div>
+                <button class="btn btn-primary" id="addUserBtn" style="margin-left:auto;">➕ Create User</button>
+            </div>
+
+            <!-- Stat Pills -->
+            <div class="user-stats-row">
+                <a href="#usersGrid" class="user-stat-pill usp-link">
+                    <div class="usp-icon usp-blue">👥</div>
+                    <div class="usp-body">
+                        <div class="usp-value" id="totalUsers">0</div>
+                        <div class="usp-label">Total Staff</div>
+                        <div class="usp-hint">View All &rarr;</div>
+                    </div>
+                </a>
+                <a href="users.html#active" class="user-stat-pill usp-link">
+                    <div class="usp-icon usp-green">✅</div>
+                    <div class="usp-body">
+                        <div class="usp-value" id="activeUsers">0</div>
+                        <div class="usp-label">Active</div>
+                        <div class="usp-hint">Filter Active &rarr;</div>
+                    </div>
+                </a>
+                <a href="users.html#inactive" class="user-stat-pill usp-link">
+                    <div class="usp-icon usp-red">🚫</div>
+                    <div class="usp-body">
+                        <div class="usp-value" id="inactiveUsers">0</div>
+                        <div class="usp-label">Inactive</div>
+                        <div class="usp-hint">Filter Inactive &rarr;</div>
+                    </div>
+                </a>
+                <a href="shops.html" class="user-stat-pill usp-link">
+                    <div class="usp-icon usp-orange">🏪</div>
+                    <div class="usp-body">
+                        <div class="usp-value" id="shopsCovered">0</div>
+                        <div class="usp-label">Active Shops</div>
+                        <div class="usp-hint">Manage Shops &rarr;</div>
+                    </div>
+                </a>
+                <a href="#usersGrid" class="user-stat-pill usp-link">
+                    <div class="usp-icon usp-purple">🎭</div>
+                    <div class="usp-body">
+                        <div class="usp-value" id="rolesCount">0</div>
+                        <div class="usp-label">Roles in Use</div>
+                        <div class="usp-hint">View Staff &rarr;</div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Role Legend -->
+            <div class="role-legend-bar">
+                <span class="role-legend-label">Roles:</span>
+                <span class="role-badge role-admin">Admin</span>
+                <span class="role-legend-desc">Full access</span>
+                <span class="role-divider">·</span>
+                <span class="role-badge role-manager">Manager</span>
+                <span class="role-legend-desc">Operations</span>
+                <span class="role-divider">·</span>
+                <span class="role-badge role-cashier">Cashier</span>
+                <span class="role-legend-desc">Sales only</span>
+                <span class="role-divider">·</span>
+                <span class="role-badge role-stock">Stock Manager</span>
+                <span class="role-legend-desc">Inventory only</span>
+                <span class="role-divider">·</span>
+                <span class="role-badge role-driver">Delivery Person</span>
+                <span class="role-legend-desc">Deliveries only</span>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="page-toolbar">
+                <div class="toolbar-group">
+                    <div class="search-bar search-wide">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchUser" placeholder="Search by name or username...">
+                    </div>
+                    <select class="filter-select" id="roleFilter">
+                        <option value="">All Roles</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Manager">Manager</option>
+                        <option value="Cashier">Cashier</option>
+                        <option value="Stock Manager">Stock Manager</option>
+                        <option value="Delivery Person">Delivery Person</option>
+                    </select>
+                    <select class="filter-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="toolbar-group">
+                    <span class="users-count-label" id="usersCountLabel"></span>
+                </div>
+            </div>
+
+            <!-- User Cards Grid -->
+            <div class="users-grid" id="usersGrid">
+                <div class="empty-state" style="grid-column:1/-1;padding:3rem;">
+                    <span class="empty-icon">👤</span><p>No users found.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Create / Edit User Modal -->
+<div class="modal-overlay" id="userModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="userModalTitle">Create New User</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="userForm" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="userFullName">Full Name *</label>
+                        <input type="text" class="form-control" id="userFullName" placeholder="e.g. Amadu Koroma" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="userUsername">Username *</label>
+                        <input type="text" class="form-control" id="userUsername" placeholder="e.g. amadu" required>
+                    </div>
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label class="form-label" for="userPassword">Password *</label>
+                    <input type="password" class="form-control" id="userPassword" placeholder="Min. 6 characters">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="userRoleSelect">Role *</label>
+                        <select class="form-control" id="userRoleSelect">
+                            <option value="Cashier">Cashier</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Stock Manager">Stock Manager</option>
+                            <option value="Delivery Person">Delivery Person 🚚</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="userShop">Assign to Shop</label>
+                        <select class="form-control" id="userShop">
+                            <option value="">All Shops / No Restriction</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Role description hint -->
+                <div class="role-hint-box" id="roleHintBox">
+                    <span class="role-hint-icon">ℹ️</span>
+                    <span class="role-hint-text" id="roleHintText">Cashier can record sales and view customers.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="userStatus">Status</label>
+                    <select class="form-control" id="userStatus">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="saveUserBtn">Create User</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/users.js"></script>
+</body>
+</html>
+
+
+

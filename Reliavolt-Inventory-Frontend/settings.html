@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item active">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Settings</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <span id="currentUser">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <div class="settings-wrap">
+
+                <!-- Company Settings -->
+                <div class="card settings-section-card">
+                    <div class="card-header">
+                        <span class="card-title">🏢 Company Information</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label" for="settingCompanyName">Company Name</label>
+                            <input type="text" class="form-control" id="settingCompanyName" placeholder="Reliavolt Supply">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="settingCurrency">Currency</label>
+                            <select class="form-control" id="settingCurrency">
+                                <option value="Le">Le — Sierra Leonean Leone</option>
+                                <option value="USD">USD — US Dollar</option>
+                                <option value="GBP">GBP — British Pound</option>
+                                <option value="EUR">EUR — Euro</option>
+                                <option value="NGN">NGN — Nigerian Naira</option>
+                                <option value="GHS">GHS — Ghanaian Cedi</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="settingReceiptFooter">Receipt Footer Message</label>
+                            <textarea class="form-control" id="settingReceiptFooter" rows="2" placeholder="Thank you for your business!"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appearance -->
+                <div class="card settings-section-card">
+                    <div class="card-header">
+                        <span class="card-title">🎨 Appearance</span>
+                    </div>
+                    <div class="card-body">
+                        <label class="form-label">Theme <span style="font-size:0.75rem;color:var(--text-light);font-weight:400;">(click to preview instantly)</span></label>
+                        <div class="theme-grid">
+                            <div class="theme-option-card" id="themeLight" data-theme-val="light">
+                                <input type="radio" name="theme" value="light" id="themeRadioLight" class="sr-only">
+                                <span class="theme-icon">☀️</span>
+                                <div class="theme-name">Light Mode</div>
+                                <div class="theme-desc">Clean, bright interface</div>
+                            </div>
+                            <div class="theme-option-card" id="themeDark" data-theme-val="dark">
+                                <input type="radio" name="theme" value="dark" id="themeRadioDark" class="sr-only">
+                                <span class="theme-icon">🌙</span>
+                                <div class="theme-name">Dark Mode</div>
+                                <div class="theme-desc">Easy on the eyes at night</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Management -->
+                <div class="card settings-section-card">
+                    <div class="card-header">
+                        <span class="card-title">🗄️ Data Management</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="data-actions-list">
+                            <div class="data-action-row">
+                                <div>
+                                    <div class="data-action-title">Export Data</div>
+                                    <div class="data-action-desc">Download all data as a JSON backup file</div>
+                                </div>
+                                <button class="btn btn-secondary btn-sm" id="exportDataBtn">⬇️ Export JSON</button>
+                            </div>
+                            <div class="data-action-row data-action-danger">
+                                <div>
+                                    <div class="data-action-title data-action-title-danger">Reset All Data</div>
+                                    <div class="data-action-desc">Clear everything and restore sample data</div>
+                                </div>
+                                <button class="btn btn-danger btn-sm" id="resetDataBtn">⚠️ Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save -->
+                <div class="settings-actions">
+                    <button class="btn btn-primary btn-lg" id="saveSettingsBtn">💾 Save Settings</button>
+                    <a href="dashboard.html" class="btn btn-secondary btn-lg">Cancel</a>
+                </div>
+
+                <div class="app-info">
+                    Reliavolt Supply Inventory System v1.0 &bull; Frontend Demo &bull; HTML5 / CSS3 / JavaScript ES6
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>
+
+
+

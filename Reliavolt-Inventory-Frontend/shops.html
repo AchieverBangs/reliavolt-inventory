@@ -1,0 +1,200 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shops — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item active nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Shop Management</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <div class="admin-banner">
+                <span class="admin-banner-icon">🏪</span>
+                <div>
+                    <div class="admin-banner-title">Admin Only — Shop Management</div>
+                    <div class="admin-banner-sub">Create and manage all your Reliavolt Supply branches</div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="summary-grid">
+                <a href="#shopsGrid" class="card summary-card summary-card-link">
+                    <div class="summary-icon">🏪</div>
+                    <div>
+                        <div class="summary-label">Total Shops</div>
+                        <div class="summary-value" id="totalShops">0</div>
+                        <div class="summary-link-hint">View All &rarr;</div>
+                    </div>
+                </a>
+                <a href="shops.html#active" class="card summary-card summary-card-link">
+                    <div class="summary-icon">✅</div>
+                    <div>
+                        <div class="summary-label">Active Shops</div>
+                        <div class="summary-value" id="activeShops">0</div>
+                        <div class="summary-link-hint">Filter Active &rarr;</div>
+                    </div>
+                </a>
+                <a href="users.html" class="card summary-card summary-card-link">
+                    <div class="summary-icon">👥</div>
+                    <div>
+                        <div class="summary-label">Total Staff</div>
+                        <div class="summary-value" id="totalStaff">0</div>
+                        <div class="summary-link-hint">Manage Users &rarr;</div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="page-toolbar">
+                <div class="section-title">All Branches</div>
+                <button class="btn btn-primary" id="addShopBtn">➕ Add New Shop</button>
+            </div>
+
+            <!-- Shop Cards Grid -->
+            <div class="shops-grid" id="shopsGrid">
+                <div class="empty-state">
+                    <span class="empty-icon">🏪</span>
+                    <p>No shops yet.</p>
+                </div>
+            </div>
+
+
+        </main>
+    </div>
+</div>
+
+<!-- Add / Edit Shop Modal -->
+<div class="modal-overlay" id="shopModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="shopModalTitle">Add New Shop</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="shopForm" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="shopName">Shop Name *</label>
+                    <input type="text" class="form-control" id="shopName" placeholder="e.g. Congo Cross Branch" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shopAddress">Address *</label>
+                    <input type="text" class="form-control" id="shopAddress" placeholder="e.g. 8 Congo Cross Road, Freetown" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="shopPhone">Phone Number</label>
+                        <input type="tel" class="form-control" id="shopPhone" placeholder="e.g. +232 78 111222">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="shopManager">Manager</label>
+                        <input type="text" class="form-control" id="shopManager" placeholder="e.g. Fatima Jalloh" list="managerList">
+                        <datalist id="managerList"></datalist>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shopStatus">Status</label>
+                    <select class="form-control" id="shopStatus">
+                        <option value="Active">Active</option>
+                        <option value="Planned">Planned</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="saveShopBtn">Save Shop</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/shops.js"></script>
+</body>
+</html>
+
+
+
