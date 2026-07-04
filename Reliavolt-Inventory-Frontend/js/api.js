@@ -1,5 +1,5 @@
 // ===== API BASE =====
-const API_BASE = 'http://localhost:4000';
+const API_BASE = 'https://reliavolt-inventory-production.up.railway.app';
 
 // ===== TOKEN MANAGEMENT =====
 function getToken()      { return localStorage.getItem('rv_token'); }
