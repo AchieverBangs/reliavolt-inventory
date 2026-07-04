@@ -1,6 +1,7 @@
 require('dotenv').config();
-const app  = require('./src/app');
-const pool = require('./src/db/pool');
+const app    = require('./src/app');
+const pool   = require('./src/db/pool');
+const { initDb } = require('./src/db/init');
 
 const PORT = process.env.PORT || 4000;
 
@@ -9,6 +10,9 @@ async function start() {
         // Verify database connection
         await pool.query('SELECT 1');
         console.log('✅ PostgreSQL connected');
+
+        // Initialise schema (idempotent — uses IF NOT EXISTS / ON CONFLICT DO NOTHING)
+        await initDb();
 
         app.listen(PORT, () => {
             console.log(`🚀 Reliavolt API running on http://localhost:${PORT}`);
