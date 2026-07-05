@@ -43,8 +43,43 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/me  — verify token and return current user
-router.get('/me', verifyToken, (req, res) => {
-    res.json({ user: req.user });
+router.get('/me', verifyToken, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, name, username, email, role, shop_id FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        res.json({ user: rows[0] || req.user });
+    } catch { res.json({ user: req.user }); }
+});
+
+// PATCH /api/auth/profile  — update own email / password
+router.patch('/profile', verifyToken, async (req, res) => {
+    const { email, currentPassword, newPassword } = req.body;
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+        const user = rows[0];
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        let hash = user.password_hash;
+
+        if (newPassword) {
+            if (!currentPassword) return res.status(400).json({ error: 'Current password is required to set a new one' });
+            if (newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
+            const valid = await bcrypt.compare(currentPassword, hash);
+            if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
+            hash = await bcrypt.hash(newPassword, 10);
+        }
+
+        const { rows: updated } = await pool.query(
+            'UPDATE users SET email = $1, password_hash = $2 WHERE id = $3 RETURNING id, name, username, email, role, shop_id',
+            [email || null, hash, req.user.id]
+        );
+        res.json({ user: updated[0], message: 'Profile updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // POST /api/auth/forgot-password

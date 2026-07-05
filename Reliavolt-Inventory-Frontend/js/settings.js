@@ -67,11 +67,58 @@ async function saveSettingsForm() {
     }
 }
 
+// ===== LOAD MY ACCOUNT =====
+async function loadMyAccount() {
+    try {
+        const { user } = await api.get('/api/auth/me');
+        if (user?.email) {
+            const el = document.getElementById('accountEmail');
+            if (el) el.value = user.email;
+        }
+    } catch { /* ignore */ }
+}
+
+// ===== SAVE MY ACCOUNT =====
+async function saveMyAccount() {
+    const email      = document.getElementById('accountEmail').value.trim() || null;
+    const currentPw  = document.getElementById('accountCurrentPw').value;
+    const newPw      = document.getElementById('accountNewPw').value;
+    const confirmPw  = document.getElementById('accountConfirmPw').value;
+
+    if (newPw && newPw !== confirmPw) {
+        showToast('New passwords do not match.', 'error');
+        return;
+    }
+    if (newPw && newPw.length < 6) {
+        showToast('New password must be at least 6 characters.', 'error');
+        return;
+    }
+    if (newPw && !currentPw) {
+        showToast('Please enter your current password.', 'error');
+        return;
+    }
+
+    const body = { email };
+    if (newPw) { body.currentPassword = currentPw; body.newPassword = newPw; }
+
+    try {
+        await api.patch('/api/auth/profile', body);
+        document.getElementById('accountCurrentPw').value = '';
+        document.getElementById('accountNewPw').value     = '';
+        document.getElementById('accountConfirmPw').value = '';
+        showToast('Account updated successfully!', 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
     loadSettingsForm();
+    loadMyAccount();
 
     document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettingsForm);
+    document.getElementById('saveAccountBtn')?.addEventListener('click', saveMyAccount);
 
     document.querySelectorAll('.theme-option-card').forEach(card => {
         card.addEventListener('click', () => {

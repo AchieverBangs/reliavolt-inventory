@@ -164,6 +164,36 @@
                     </div>
                 </div>
 
+                <!-- My Account -->
+                <div class="card settings-section-card">
+                    <div class="card-header">
+                        <span class="card-title">👤 My Account</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label" for="accountEmail">My Email Address <span style="font-size:0.78rem;color:var(--text-light);font-weight:400;">(used for password reset)</span></label>
+                            <input type="email" class="form-control" id="accountEmail" placeholder="your@email.com">
+                        </div>
+                        <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0;">
+                        <div class="form-label" style="margin-bottom:0.75rem;font-weight:600;">Change Password <span style="font-size:0.78rem;color:var(--text-light);font-weight:400;">(leave blank to keep current)</span></div>
+                        <div class="form-group">
+                            <label class="form-label" for="accountCurrentPw">Current Password</label>
+                            <input type="password" class="form-control" id="accountCurrentPw" placeholder="Enter current password">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="accountNewPw">New Password</label>
+                                <input type="password" class="form-control" id="accountNewPw" placeholder="Min. 6 characters">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="accountConfirmPw">Confirm New Password</label>
+                                <input type="password" class="form-control" id="accountConfirmPw" placeholder="Re-enter new password">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="saveAccountBtn">💾 Save My Account</button>
+                    </div>
+                </div>
+
                 <!-- Save -->
                 <div class="settings-actions">
                     <button class="btn btn-primary btn-lg" id="saveSettingsBtn">💾 Save Settings</button>
