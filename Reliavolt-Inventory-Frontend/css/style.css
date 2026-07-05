@@ -968,12 +968,23 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     .page-content { padding: 1rem; }
     .form-row, .form-row-3 { grid-template-columns: 1fr; }
     .header-date { display: none; }
+    /* hide name/role text in header — just show avatar */
+    .user-badge > div { display: none; }
+    .user-badge { padding: 0.3rem; border-radius: 50%; background: transparent; }
+    .section-header { flex-wrap: wrap; }
+    .card-header { flex-wrap: wrap; }
 }
 
 @media (max-width: 480px) {
     .login-card { padding: 2rem 1.25rem; }
     .btn { padding: 0.45rem 0.75rem; font-size: 0.85rem; }
     .modal { margin: 0.5rem; }
+    /* full-width toasts on small screens */
+    .toast-container { left: 0.75rem; right: 0.75rem; }
+    .toast { min-width: 0; max-width: 100%; width: 100%; }
+    /* section header stacks */
+    .section-header { flex-direction: column; align-items: flex-start; }
+    .section-header .btn { align-self: flex-start; }
 }
 
 @media print {
