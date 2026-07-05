@@ -50,4 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', doLogin);
     document.getElementById('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
     document.getElementById('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('password').focus(); });
+
+    document.getElementById('forgotBtn')?.addEventListener('click', () => {
+        const help = document.getElementById('forgotHelp');
+        if (help) help.style.display = help.style.display === 'none' ? 'block' : 'none';
+    });
 });

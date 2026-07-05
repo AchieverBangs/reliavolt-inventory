@@ -110,6 +110,7 @@ function renderUserTable() {
                     <span class="badge ${statusCls}">${u.status}</span>
                     <div class="uc-actions">
                         <button class="btn btn-warning btn-sm" onclick="openEditUser(${u.id})">✏️ Edit</button>
+                        <button class="btn btn-secondary btn-sm" onclick="openResetPassword(${u.id})" title="Reset password">🔑</button>
                         ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})" title="Delete user">🗑️</button>` : ''}
                     </div>
                 </div>
@@ -204,6 +205,42 @@ async function saveUser() {
     }
 }
 
+// ===== RESET PASSWORD =====
+let resetPasswordUserId = null;
+
+function openResetPassword(id) {
+    const user = _users.find(u => u.id === id);
+    if (!user) return;
+    resetPasswordUserId = id;
+    document.getElementById('resetPwUsername').textContent = `Resetting password for: ${user.name} (@${user.username})`;
+    document.getElementById('resetPwNew').value     = '';
+    document.getElementById('resetPwConfirm').value = '';
+    openModal('resetPwModal');
+}
+
+async function saveResetPassword() {
+    const newPw     = document.getElementById('resetPwNew').value;
+    const confirmPw = document.getElementById('resetPwConfirm').value;
+
+    if (newPw.length < 6)       { showToast('Password must be at least 6 characters.', 'error'); return; }
+    if (newPw !== confirmPw)    { showToast('Passwords do not match.', 'error'); return; }
+
+    const user = _users.find(u => u.id === resetPasswordUserId);
+    if (!user) return;
+
+    try {
+        await api.put(`/api/users/${resetPasswordUserId}`, {
+            name: user.name, username: user.username,
+            role: user.role, shop_id: user.shop_id, status: user.status,
+            password: newPw,
+        });
+        closeModal('resetPwModal');
+        showToast(`Password for ${user.name} has been reset.`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 // ===== DELETE USER =====
 async function deleteUser(id) {
     const user = _users.find(u => u.id === id);
@@ -284,5 +321,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('addUserBtn')?.addEventListener('click', openAddUser);
     document.getElementById('saveUserBtn')?.addEventListener('click', saveUser);
+    document.getElementById('saveResetPwBtn')?.addEventListener('click', saveResetPassword);
     document.getElementById('userRoleSelect')?.addEventListener('change', updateRoleHint);
 });
