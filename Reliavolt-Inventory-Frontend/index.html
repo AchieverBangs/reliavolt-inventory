@@ -42,22 +42,6 @@
             <button id="forgotBtn" style="background:none;border:none;color:#2563eb;font-size:0.85rem;cursor:pointer;text-decoration:underline;">Forgot password?</button>
         </div>
 
-        <!-- Forgot password form -->
-        <div id="forgotSection" style="display:none;margin-top:0.75rem;">
-            <div style="padding:1rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;">
-                <p style="font-size:0.85rem;color:#475569;margin-bottom:0.75rem;">Enter your email address and we'll send you a reset link.</p>
-                <div style="display:flex;gap:0.5rem;">
-                    <input type="email" id="forgotEmail" placeholder="your@email.com"
-                        style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
-                    <button id="forgotSendBtn"
-                        style="padding:0.6rem 1rem;background:#1a3a8f;color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">
-                        Send Link
-                    </button>
-                </div>
-                <div id="forgotMsg" style="display:none;margin-top:0.6rem;font-size:0.82rem;padding:0.5rem 0.75rem;border-radius:6px;"></div>
-            </div>
-        </div>
-
         <div class="login-demo-hint">
             Admin: <strong>admin / password</strong> &nbsp;&bull;&nbsp;
             Driver: <strong>sorie / password</strong>
@@ -65,6 +49,24 @@
 
         <div class="login-footer">
             &copy; 2025 Reliavolt Supply &bull; Inventory Management System v1.0
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:#fff;border-radius:14px;padding:2rem 1.75rem;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+                <h2 style="font-size:1.1rem;font-weight:700;color:#1e293b;">🔑 Forgot Password</h2>
+                <button id="forgotModalClose" style="background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+            <p style="font-size:0.875rem;color:#64748b;margin-bottom:1rem;">Enter your email address and we'll send you a reset link.</p>
+            <input type="email" id="forgotEmail" placeholder="your@email.com"
+                style="width:100%;padding:0.7rem 0.875rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.95rem;margin-bottom:0.75rem;box-sizing:border-box;">
+            <button id="forgotSendBtn"
+                style="width:100%;padding:0.75rem;background:#1a3a8f;color:#fff;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;">
+                Send Reset Link
+            </button>
+            <div id="forgotMsg" style="display:none;margin-top:0.75rem;font-size:0.85rem;padding:0.65rem 0.875rem;border-radius:8px;text-align:center;"></div>
         </div>
     </div>
 

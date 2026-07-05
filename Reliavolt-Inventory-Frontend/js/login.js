@@ -51,9 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
     document.getElementById('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('password').focus(); });
 
+    const forgotModal = document.getElementById('forgotModal');
     document.getElementById('forgotBtn')?.addEventListener('click', () => {
-        const section = document.getElementById('forgotSection');
-        if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        forgotModal.style.display = 'flex';
+        document.getElementById('forgotEmail').value = '';
+        document.getElementById('forgotMsg').style.display = 'none';
+    });
+    document.getElementById('forgotModalClose')?.addEventListener('click', () => {
+        forgotModal.style.display = 'none';
+    });
+    forgotModal?.addEventListener('click', (e) => {
+        if (e.target === forgotModal) forgotModal.style.display = 'none';
     });
 
     document.getElementById('forgotSendBtn')?.addEventListener('click', async () => {
