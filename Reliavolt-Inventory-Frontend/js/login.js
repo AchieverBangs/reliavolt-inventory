@@ -52,7 +52,36 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('password').focus(); });
 
     document.getElementById('forgotBtn')?.addEventListener('click', () => {
-        const help = document.getElementById('forgotHelp');
-        if (help) help.style.display = help.style.display === 'none' ? 'block' : 'none';
+        const section = document.getElementById('forgotSection');
+        if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
     });
+
+    document.getElementById('forgotSendBtn')?.addEventListener('click', async () => {
+        const email   = document.getElementById('forgotEmail').value.trim();
+        const msgEl   = document.getElementById('forgotMsg');
+        const sendBtn = document.getElementById('forgotSendBtn');
+        if (!email) { showForgotMsg('Please enter your email address.', false); return; }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending…';
+        try {
+            const data = await api.post('/api/auth/forgot-password', { email });
+            showForgotMsg(data.message, true);
+        } catch (err) {
+            showForgotMsg(err.message, false);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Link';
+        }
+    });
+
+    function showForgotMsg(text, success) {
+        const el = document.getElementById('forgotMsg');
+        if (!el) return;
+        el.textContent = text;
+        el.style.display = 'block';
+        el.style.background  = success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+        el.style.color       = success ? '#15803d' : '#dc2626';
+        el.style.border      = success ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.3)';
+    }
 });

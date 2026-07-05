@@ -41,10 +41,21 @@
         <div style="text-align:center;margin-top:0.75rem;">
             <button id="forgotBtn" style="background:none;border:none;color:#2563eb;font-size:0.85rem;cursor:pointer;text-decoration:underline;">Forgot password?</button>
         </div>
-        <div id="forgotHelp" style="display:none;margin-top:0.75rem;padding:0.75rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:0.82rem;color:#475569;line-height:1.6;">
-            <strong>Contact your system administrator</strong> to reset your password.<br>
-            The admin can reset any user's password from the <strong>Users</strong> page after logging in.<br><br>
-            <strong>Default admin login:</strong> username <code style="background:#e2e8f0;padding:1px 5px;border-radius:4px;">admin</code> &nbsp;/&nbsp; password <code style="background:#e2e8f0;padding:1px 5px;border-radius:4px;">password</code>
+
+        <!-- Forgot password form -->
+        <div id="forgotSection" style="display:none;margin-top:0.75rem;">
+            <div style="padding:1rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;">
+                <p style="font-size:0.85rem;color:#475569;margin-bottom:0.75rem;">Enter your email address and we'll send you a reset link.</p>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="email" id="forgotEmail" placeholder="your@email.com"
+                        style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+                    <button id="forgotSendBtn"
+                        style="padding:0.6rem 1rem;background:#1a3a8f;color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">
+                        Send Link
+                    </button>
+                </div>
+                <div id="forgotMsg" style="display:none;margin-top:0.6rem;font-size:0.82rem;padding:0.5rem 0.75rem;border-radius:6px;"></div>
+            </div>
         </div>
 
         <div class="login-demo-hint">

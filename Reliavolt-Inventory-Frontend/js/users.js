@@ -100,6 +100,10 @@ function renderUserTable() {
                         <span class="uc-info-icon">🏪</span>
                         <span class="uc-info-text">${shop ? escHtml(shop.name) : 'All Shops'}</span>
                     </div>
+                    ${u.email ? `<div class="uc-info-row">
+                        <span class="uc-info-icon">📧</span>
+                        <span class="uc-info-text" style="font-size:0.78rem;">${escHtml(u.email)}</span>
+                    </div>` : ''}
                     <div class="uc-info-row">
                         <span class="uc-info-icon">📅</span>
                         <span class="uc-info-text">${formatDate(u.created_at)}</span>
@@ -159,6 +163,7 @@ function openEditUser(id) {
     document.getElementById('saveUserBtn').textContent      = 'Save Changes';
     document.getElementById('userFullName').value           = user.name;
     document.getElementById('userUsername').value           = user.username;
+    document.getElementById('userEmail').value              = user.email || '';
     document.getElementById('userPassword').value           = '';
     document.getElementById('userPassword').placeholder    = 'Leave blank to keep current password';
     document.getElementById('userRoleSelect').value         = user.role;
@@ -173,6 +178,7 @@ function openEditUser(id) {
 async function saveUser() {
     const name     = document.getElementById('userFullName').value.trim();
     const username = document.getElementById('userUsername').value.trim().toLowerCase();
+    const email    = document.getElementById('userEmail').value.trim() || null;
     const password = document.getElementById('userPassword').value;
     const role     = document.getElementById('userRoleSelect').value;
     const shopId   = document.getElementById('userShop').value ? parseInt(document.getElementById('userShop').value) : null;
@@ -184,7 +190,7 @@ async function saveUser() {
     const duplicate = _users.find(u => u.username === username && u.id !== editingUserId);
     if (duplicate) { showToast(`Username "@${username}" is already taken.`, 'error'); return; }
 
-    const payload = { name, username, role, shop_id: shopId, status, ...(password ? { password } : {}) };
+    const payload = { name, username, email, role, shop_id: shopId, status, ...(password ? { password } : {}) };
 
     try {
         if (editingUserId) {

@@ -105,6 +105,19 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Seed default settings row
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
+-- Add email to users (safe to run again)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+
+-- Password reset tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      VARCHAR(128) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    used       BOOLEAN   NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- ============================================================
 -- Seed Data (safe to re-run — uses ON CONFLICT DO NOTHING)
 -- ============================================================
