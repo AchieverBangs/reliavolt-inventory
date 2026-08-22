@@ -2,17 +2,15 @@
 
 **"We Go For Value"**
 
-A complete frontend-only inventory management system built with HTML5, CSS3, and JavaScript ES6. Uses LocalStorage for data persistence during this demo phase. No backend or database required to run.
+A frontend built with HTML5, CSS3, and JavaScript ES6 that talks to a real Express + PostgreSQL backend (see `../backend`) over a JWT-authenticated REST API. Inventory is tracked per shop/branch.
 
 ---
 
-## How to Open
+## How to Run
 
-Open `index.html` in any modern browser (Chrome, Edge, Firefox).
-
-**Demo login:**
-- Username: `admin`
-- Password: `admin123`
+- **Production:** deployed as a static site (e.g. GitHub Pages) pointing at the Railway-hosted API.
+- **Local dev:** serve this folder with a local HTTP server (e.g. VS Code Live Server on port 5500) and run the backend locally (`cd ../backend && npm run dev`). `js/api.js` automatically points at `http://localhost:4000` when the page is served from `localhost`/`127.0.0.1`, and at the production API otherwise — so local development never touches production data.
+- Log in with a real user from the `users` table (see `../backend/scripts/seed-passwords.js` to set/rotate passwords).
 
 ---
 
@@ -77,22 +75,13 @@ Reliavolt-Inventory-Frontend/
 
 ## Technical Notes
 
-- All data is stored in **browser LocalStorage** (frontend demo only)
-- Sample data is seeded automatically on first load (18 products, 8 customers, 30 days of sales)
+- All data lives in PostgreSQL, accessed via the REST API in `../backend`
+- Auth uses JWT bearer tokens (`js/api.js`); the token carries the user's role and assigned `shopId`
+- Products belong to a shop (`shop_id`); non-Admin roles are automatically scoped to their own shop for inventory and sales, Admins see/manage all shops
 - Currency defaults to **Le (Sierra Leonean Leone)**
 - No external libraries or CDN dependencies — pure HTML/CSS/JS
 - Responsive for desktop and mobile screens
 
 ---
 
-## Next Steps (Backend Integration)
-
-When ready to connect a backend:
-1. Replace `getProducts()` / `saveProducts()` calls in `js/app.js` with `fetch()` API calls
-2. Replace `getSales()` / `saveSales()` with API endpoints
-3. Add JWT or session-based authentication to replace the demo `sessionStorage` auth
-4. Connect the reports to a real database aggregation layer
-
----
-
-*Reliavolt Supply Inventory System v1.0 — Frontend Phase*
+*Reliavolt Supply Inventory System*

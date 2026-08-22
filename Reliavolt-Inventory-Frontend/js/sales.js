@@ -15,23 +15,37 @@ let currentSale = {
 };
 
 // ===== POPULATE SHOP DROPDOWN =====
+// Admins can sell from any shop; everyone else is locked to their own (products are per-shop stock).
 function populateShopSelect() {
     const select = document.getElementById('saleShop');
     if (!select) return;
-    const active = _shops.filter(s => s.status === 'Active');
-    select.innerHTML = '<option value="">-- Select Shop --</option>' +
-        active.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
-
     const shopId = getCurrentUserShopId();
+
+    if (isAdmin()) {
+        const active = _shops.filter(s => s.status === 'Active');
+        select.innerHTML = '<option value="">-- Select Shop --</option>' +
+            active.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+        select.disabled = false;
+    } else {
+        const shop = _shops.find(s => s.id === shopId);
+        select.innerHTML = shop
+            ? `<option value="${shop.id}">${escHtml(shop.name)}</option>`
+            : '<option value="">No shop assigned</option>';
+        select.disabled = true;
+    }
+
     if (shopId) select.value = shopId;
 }
 
-// ===== POPULATE PRODUCT DROPDOWN =====
+// ===== POPULATE PRODUCT DROPDOWN (filtered to the selected shop) =====
 function populateProductSelect() {
     const select = document.getElementById('productSelect');
     if (!select) return;
+    const shopId = parseInt(document.getElementById('saleShop')?.value) || null;
+
+    const inShop = shopId ? _products.filter(p => p.shop_id === shopId) : [];
     select.innerHTML = '<option value="">-- Select a Product --</option>' +
-        _products.filter(p => p.quantity > 0).map(p => {
+        inShop.filter(p => p.quantity > 0).map(p => {
             const status = getStockStatus(p.quantity);
             return `<option value="${p.id}" data-cost="${p.cost_price}" data-price="${p.selling_price}" data-qty="${p.quantity}">
                 ${escHtml(p.name)} (${escHtml(p.brand || '')}) - ${formatCurrency(p.selling_price)} [Qty: ${p.quantity}]
@@ -144,7 +158,6 @@ async function recordSale() {
     const qty          = parseInt(document.getElementById('saleQty').value) || 1;
     const customerName = document.getElementById('customerName').value.trim();
     const paymentMethod = currentSale.paymentMethod;
-    const shopId       = parseInt(document.getElementById('saleShop')?.value) || null;
 
     if (qty < 1) { showToast('Quantity must be at least 1.', 'error'); return; }
 
@@ -158,7 +171,6 @@ async function recordSale() {
             customer_name:  customerName || 'Walk-in Customer',
             qty,
             payment_method: paymentMethod,
-            shop_id:        shopId,
         });
 
         // Update local product quantity and sales list
@@ -285,6 +297,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deletedSection) deletedSection.style.display = 'none';
 
     document.getElementById('productSelect')?.addEventListener('change', onProductChange);
+    document.getElementById('saleShop')?.addEventListener('change', () => {
+        resetSaleForm();
+        populateProductSelect();
+    });
 
     const qtyInput = document.getElementById('saleQty');
     qtyInput && qtyInput.addEventListener('input', () => {

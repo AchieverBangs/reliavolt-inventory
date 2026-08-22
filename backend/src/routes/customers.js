@@ -10,7 +10,8 @@ router.get('/', verifyToken, async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM customers ORDER BY name');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -21,7 +22,8 @@ router.get('/:id', verifyToken, async (req, res) => {
         if (!rows[0]) return res.status(404).json({ error: 'Customer not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -37,7 +39,8 @@ router.post('/', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async 
         );
         res.status(201).json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -54,7 +57,8 @@ router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), asyn
         if (!rows[0]) return res.status(404).json({ error: 'Customer not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -65,7 +69,8 @@ router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, 
         if (!rowCount) return res.status(404).json({ error: 'Customer not found' });
         res.json({ message: 'Customer deleted' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

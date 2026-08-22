@@ -13,7 +13,8 @@ router.get('/', verifyToken, requireRole('Admin'), async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -38,7 +39,8 @@ router.post('/', verifyToken, requireRole('Admin'), async (req, res) => {
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -65,7 +67,8 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         res.json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -79,7 +82,8 @@ router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         if (!rowCount) return res.status(404).json({ error: 'User not found' });
         res.json({ message: 'User deleted' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

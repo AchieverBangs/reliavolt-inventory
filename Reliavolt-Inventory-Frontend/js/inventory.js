@@ -1,8 +1,10 @@
 // ===== STATE =====
 let _products = [];
+let _shops = [];
 let editingProductId = null;
 let currentFilter = 'all';
 let searchQuery = '';
+let shopFilterId = '';
 
 // ===== RENDER =====
 function renderInventoryStats() {
@@ -29,11 +31,13 @@ function renderProductTable() {
             (currentFilter === 'in'  && p.quantity > LOW_STOCK_THRESHOLD) ||
             (currentFilter === 'low' && p.quantity > 0 && p.quantity <= LOW_STOCK_THRESHOLD) ||
             (currentFilter === 'out' && p.quantity === 0);
-        return matchSearch && matchFilter;
+        const matchShop = !shopFilterId || p.shop_id === parseInt(shopFilterId);
+        return matchSearch && matchFilter && matchShop;
     });
 
+    const colspan = isAdmin() ? 10 : 9;
     if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="9">
+        tbody.innerHTML = `<tr><td colspan="${colspan}">
             <div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div>
         </td></tr>`;
         setEl('paginationInfo', 'Showing 0 products');
@@ -44,6 +48,7 @@ function renderProductTable() {
         const status = getStockStatus(p.quantity);
         const profit = p.selling_price - p.cost_price;
         const margin = p.selling_price > 0 ? ((profit / p.selling_price) * 100).toFixed(1) : '0.0';
+        const shopCell = isAdmin() ? `<td><span class="badge badge-secondary">${escHtml(p.shop_name || '—')}</span></td>` : '';
         return `<tr class="${status.rowCls}">
             <td>${idx + 1}</td>
             <td>
@@ -56,6 +61,7 @@ function renderProductTable() {
                 </div>
             </td>
             <td><span class="badge badge-info">${escHtml(p.category || '')}</span></td>
+            ${shopCell}
             <td class="price-cell">${formatCurrency(p.cost_price)}</td>
             <td class="price-cell">${formatCurrency(p.selling_price)}</td>
             <td class="profit-cell">+${formatCurrency(profit)} <span style="font-size:0.75rem;color:var(--text-light)">(${margin}%)</span></td>
@@ -73,12 +79,29 @@ function renderProductTable() {
     setEl('paginationInfo', `Showing ${filtered.length} of ${_products.length} products`);
 }
 
+// ===== SHOP DROPDOWNS =====
+function populateShopFilter() {
+    const select = document.getElementById('shopFilter');
+    if (!select) return;
+    select.innerHTML = '<option value="">All Shops</option>' +
+        _shops.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+}
+
+function populateProductShopSelect() {
+    const select = document.getElementById('productShop');
+    if (!select) return;
+    const active = _shops.filter(s => s.status !== 'Inactive');
+    select.innerHTML = '<option value="">-- Select Shop --</option>' +
+        active.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+}
+
 // ===== ADD / EDIT =====
 function openAddProduct() {
     editingProductId = null;
     document.getElementById('productForm').reset();
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productIcon').value = '📦';
+    if (isAdmin()) populateProductShopSelect();
     clearPricePreview();
     openModal('productModal');
 }
@@ -96,6 +119,11 @@ function openEditProduct(id) {
     document.getElementById('productSelling').value       = product.selling_price;
     document.getElementById('productQuantity').value      = product.quantity;
     document.getElementById('productIcon').value          = product.icon || '📦';
+
+    if (isAdmin()) {
+        populateProductShopSelect();
+        document.getElementById('productShop').value = product.shop_id || '';
+    }
 
     updatePricePreview();
     openModal('productModal');
@@ -118,6 +146,12 @@ async function saveProduct() {
     if (quantity < 0)                { showToast('Quantity cannot be negative.', 'error'); return; }
 
     const payload = { name, category, brand, cost_price, selling_price, quantity, icon };
+
+    if (isAdmin()) {
+        const shopId = document.getElementById('productShop')?.value;
+        if (!shopId) { showToast('Please select a shop.', 'error'); return; }
+        payload.shop_id = parseInt(shopId);
+    }
 
     try {
         if (editingProductId) {
@@ -202,15 +236,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (['all', 'in', 'low', 'out'].includes(hashFilter)) currentFilter = hashFilter;
 
     try {
-        _products = await api.get('/api/products');
+        [_products, _shops] = await Promise.all([
+            api.get('/api/products'),
+            api.get('/api/shops'),
+        ]);
     } catch (err) {
         showToast('Failed to load inventory: ' + err.message, 'error');
-        _products = [];
+        _products = []; _shops = [];
     }
 
     renderInventoryStats();
     renderProductTable();
     populateCategoryFilter();
+    if (isAdmin()) populateShopFilter();
 
     if (hashFilter && ['all', 'in', 'low', 'out'].includes(hashFilter)) {
         document.querySelectorAll('[data-stock-filter]').forEach(b => b.classList.remove('active'));
@@ -235,6 +273,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const catFilter = document.getElementById('categoryFilter');
     catFilter && catFilter.addEventListener('change', () => {
         searchQuery = catFilter.value.toLowerCase();
+        renderProductTable();
+    });
+
+    const shopFilter = document.getElementById('shopFilter');
+    shopFilter && shopFilter.addEventListener('change', () => {
+        shopFilterId = shopFilter.value;
         renderProductTable();
     });
 

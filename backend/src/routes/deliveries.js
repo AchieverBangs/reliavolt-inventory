@@ -24,7 +24,8 @@ router.get('/', verifyToken, async (req, res) => {
         const { rows } = await pool.query(query, vals);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -43,7 +44,8 @@ router.get('/:id', verifyToken, async (req, res) => {
         if (!rows[0]) return res.status(404).json({ error: 'Delivery not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -95,7 +97,8 @@ router.post('/', verifyToken, requireRole(...MGMT_ROLES), async (req, res) => {
         res.status(201).json(full[0]);
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     } finally {
         client.release();
     }
@@ -123,7 +126,8 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
         );
         res.json(updated[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -134,7 +138,8 @@ router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         if (!rowCount) return res.status(404).json({ error: 'Delivery not found' });
         res.json({ message: 'Delivery deleted' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

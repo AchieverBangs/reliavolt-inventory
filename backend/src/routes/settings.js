@@ -10,7 +10,8 @@ router.get('/', verifyToken, async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM settings WHERE id = 1');
         res.json(rows[0] || {});
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -32,7 +33,8 @@ router.put('/', verifyToken, requireRole('Admin'), async (req, res) => {
         );
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

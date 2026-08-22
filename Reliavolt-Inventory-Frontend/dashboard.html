@@ -117,7 +117,7 @@
                     <a href="inventory.html" class="stat-card blue">
                         <div class="stat-icon-wrap">📦</div>
                         <div class="stat-body">
-                            <div class="stat-label">Total Products</div>
+                            <div class="stat-label" id="statTotalProductsLabel">Total Products</div>
                             <div class="stat-value" id="statTotalProducts">0</div>
                             <div class="stat-change" id="statProductsSub"></div>
                             <div class="stat-link-hint">View Inventory &rarr;</div>
@@ -166,6 +166,32 @@
                             <div class="stat-link-hint">View Out of Stock &rarr;</div>
                         </div>
                     </a>
+                </div>
+
+                <!-- Products by Shop (Admin only) -->
+                <div class="card nav-admin hidden" id="productsByShopCard" style="margin-bottom:1.5rem;">
+                    <div class="chart-header">
+                        <span class="chart-title">Products by Shop</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="product-table">
+                            <thead>
+                                <tr>
+                                    <th>Shop</th>
+                                    <th>Products</th>
+                                    <th>Total Stock Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsByShopBody"></tbody>
+                            <tfoot>
+                                <tr style="font-weight:700;">
+                                    <td>All Shops</td>
+                                    <td id="shopSummaryTotalCount">0</td>
+                                    <td id="shopSummaryTotalQty">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Dashboard Grid: Chart + Recent Sales -->

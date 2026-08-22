@@ -36,8 +36,14 @@ CREATE TABLE IF NOT EXISTS products (
     selling_price NUMERIC(14,2) NOT NULL DEFAULT 0,
     quantity      INTEGER       NOT NULL DEFAULT 0,
     icon          VARCHAR(10)   DEFAULT '📦',
+    shop_id       INTEGER       REFERENCES shops(id) ON DELETE SET NULL,
     created_at    TIMESTAMP     NOT NULL DEFAULT NOW()
 );
+
+-- Per-shop stock (safe to run again) — existing rows backfill to Main Branch (id=1)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL;
+UPDATE products SET shop_id = 1 WHERE shop_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_shop_id ON products(shop_id);
 
 -- Customers
 CREATE TABLE IF NOT EXISTS customers (

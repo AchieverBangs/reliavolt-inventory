@@ -1,5 +1,6 @@
 const express  = require('express');
 const cors     = require('cors');
+const helmet   = require('helmet');
 
 const authRouter       = require('./routes/auth');
 const productsRouter   = require('./routes/products');
@@ -11,6 +12,9 @@ const deliveriesRouter = require('./routes/deliveries');
 const settingsRouter   = require('./routes/settings');
 
 const app = express();
+
+app.set('trust proxy', 1);
+app.use(helmet());
 
 // CORS — allow frontend origin (file:// and localhost dev servers)
 const allowedOrigins = [
@@ -51,7 +55,10 @@ app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.p
 // Global error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    if (err.message && err.message.startsWith('CORS blocked')) {
+        return res.status(403).json({ error: 'Origin not allowed' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
 });
 
 module.exports = app;

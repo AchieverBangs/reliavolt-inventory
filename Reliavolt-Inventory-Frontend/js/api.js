@@ -1,5 +1,8 @@
 // ===== API BASE =====
-const API_BASE = 'https://reliavolt-inventory-production.up.railway.app';
+// Local dev (served from localhost/127.0.0.1) talks to a local backend so it never touches production data.
+const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? 'http://localhost:4000'
+    : 'https://reliavolt-inventory-production.up.railway.app';
 
 // ===== TOKEN MANAGEMENT =====
 function getToken()      { return localStorage.getItem('rv_token'); }
