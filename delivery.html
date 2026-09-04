@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item active">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Delivery</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Delivery Stats -->
+            <div class="delivery-stats-grid">
+                <button class="dlv-stat-card dlv-stat-link" data-filter="" id="statCardTotal">
+                    <span class="dlv-stat-icon">🚚</span>
+                    <div>
+                        <div class="dlv-stat-label">Total Deliveries</div>
+                        <div class="dlv-stat-value" id="dlvTotal">0</div>
+                    </div>
+                    <span class="dlv-stat-arrow">→</span>
+                </button>
+                <button class="dlv-stat-card dlv-stat-link" data-filter="Pending" id="statCardPending">
+                    <span class="dlv-stat-icon">⏳</span>
+                    <div>
+                        <div class="dlv-stat-label">Pending</div>
+                        <div class="dlv-stat-value" id="dlvPending">0</div>
+                    </div>
+                    <span class="dlv-stat-arrow">→</span>
+                </button>
+                <button class="dlv-stat-card dlv-stat-link" data-filter="In Transit" id="statCardTransit">
+                    <span class="dlv-stat-icon">🔄</span>
+                    <div>
+                        <div class="dlv-stat-label">In Transit</div>
+                        <div class="dlv-stat-value" id="dlvTransit">0</div>
+                    </div>
+                    <span class="dlv-stat-arrow">→</span>
+                </button>
+                <button class="dlv-stat-card dlv-stat-link" data-filter="Delivered" id="statCardDelivered">
+                    <span class="dlv-stat-icon">✅</span>
+                    <div>
+                        <div class="dlv-stat-label">Delivered</div>
+                        <div class="dlv-stat-value" id="dlvDelivered">0</div>
+                    </div>
+                    <span class="dlv-stat-arrow">→</span>
+                </button>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="page-toolbar">
+                <div class="toolbar-group">
+                    <div class="search-bar search-medium">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchDelivery" placeholder="Search deliveries...">
+                    </div>
+                    <select class="filter-select" id="statusFilter">
+                        <option value="">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="In Transit">In Transit</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <select class="filter-select" id="typeFilter">
+                        <option value="">All Types</option>
+                        <option value="Customer Delivery">Customer Delivery</option>
+                        <option value="Shop Transfer">Shop Transfer</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="newDeliveryBtn">🚚 New Delivery</button>
+            </div>
+
+            <!-- Delivery Table -->
+            <div class="card">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Delivery No</th>
+                                <th>Type</th>
+                                <th>From Shop</th>
+                                <th>To</th>
+                                <th>Products</th>
+                                <th>Total Value</th>
+                                <th>Driver</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveryTableBody">
+                            <tr><td colspan="10"><div class="empty-state"><span class="empty-icon">🚚</span><p>No deliveries recorded.</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- New Delivery Modal -->
+<div class="modal-overlay" id="deliveryModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title" id="deliveryModalTitle">New Delivery</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="deliveryForm" novalidate>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryType">Delivery Type *</label>
+                        <select class="form-control" id="deliveryType">
+                            <option value="Customer Delivery">Customer Delivery</option>
+                            <option value="Shop Transfer">Shop Transfer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="fromShop">From Shop *</label>
+                        <select class="form-control" id="fromShop">
+                            <option value="">-- Select Shop --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Customer Delivery fields -->
+                <div id="customerFields">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="toName">Recipient Name *</label>
+                            <input type="text" class="form-control" id="toName" placeholder="Customer or company name" list="customerDeliveryList">
+                            <datalist id="customerDeliveryList"></datalist>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="toPhone">Phone</label>
+                            <input type="tel" class="form-control" id="toPhone" placeholder="+232 76 123456">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="toAddress">Delivery Address *</label>
+                        <input type="text" class="form-control" id="toAddress" placeholder="Full delivery address">
+                    </div>
+                </div>
+
+                <!-- Shop Transfer field -->
+                <div id="shopTransferFields" class="hidden">
+                    <div class="form-group">
+                        <label class="form-label" for="toShop">To Shop *</label>
+                        <select class="form-control" id="toShop">
+                            <option value="">-- Select Destination Shop --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Products -->
+                <div class="form-group">
+                    <label class="form-label">Products / Items *</label>
+                    <div id="deliveryProductsList"></div>
+                    <button type="button" class="add-product-row-btn" id="addProductRowBtn">➕ Add Product</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="driverName">Driver Name</label>
+                        <input type="text" class="form-control" id="driverName" placeholder="e.g. Sorie Kamara">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryNotes">Notes</label>
+                        <input type="text" class="form-control" id="deliveryNotes" placeholder="Any special instructions">
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="saveDeliveryBtn">Create Delivery</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delivery Detail Modal -->
+<div class="modal-overlay" id="deliveryDetailModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title" id="detailDeliveryNo">Delivery Details</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body" id="deliveryDetailBody">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
+            <button class="btn btn-primary no-print" id="printDeliveryBtn">🖨️ Print</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/delivery.js"></script>
+</body>
+</html>
+
+
+

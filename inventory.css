@@ -1,0 +1,178 @@
+/* ===== INVENTORY TOOLBAR ===== */
+.inventory-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.toolbar-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.toolbar-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+
+/* ===== PRODUCT TABLE ===== */
+.product-table-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.product-table thead th:first-child { width: 40px; }
+
+.product-img-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.product-thumb {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.product-name-cell .pname {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+.product-name-cell .pbrand {
+    font-size: 0.76rem;
+    color: var(--text-light);
+    margin-top: 0.1rem;
+}
+
+.price-cell { font-weight: 600; color: var(--text); }
+.profit-cell { color: #16a34a; font-weight: 600; }
+
+.action-cell { display: flex; gap: 0.4rem; align-items: center; }
+
+.qty-cell { font-weight: 700; font-size: 0.95rem; }
+
+/* ===== STOCK STATUS ===== */
+.stock-in { color: #16a34a; }
+.stock-low { color: #d97706; }
+.stock-out { color: #dc2626; }
+
+/* ===== ADD PRODUCT MODAL ===== */
+.modal-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+    margin-bottom: 0.875rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.price-preview {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.15);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    margin-top: 0.5rem;
+}
+
+.price-preview-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+}
+
+.price-preview-row.profit-row {
+    font-weight: 700;
+    color: #16a34a;
+    border-top: 1px dashed var(--border);
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+}
+
+/* ===== INVENTORY STATS BAR ===== */
+.inv-stats-bar {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.inv-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.inv-stat-pill .pill-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.pill-all .pill-dot { background: var(--primary); }
+.pill-in .pill-dot { background: var(--success); }
+.pill-low .pill-dot { background: var(--warning); }
+.pill-out .pill-dot { background: var(--danger); }
+
+/* ===== ROW HIGHLIGHT ===== */
+tbody tr.row-low-stock { background: rgba(245,158,11,0.04); }
+tbody tr.row-out-stock { background: rgba(239,68,68,0.04); }
+
+/* ===== PAGINATION (placeholder) ===== */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.875rem;
+}
+
+.pagination-info { color: var(--text-light); }
+.pagination-controls { display: flex; gap: 0.4rem; }
+
+.page-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text);
+}
+
+.page-btn:hover, .page-btn.active {
+    background: var(--primary);
+    color: var(--white);
+    border-color: var(--primary);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .inventory-toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-left, .toolbar-right { justify-content: space-between; }
+    .action-cell { flex-direction: column; gap: 0.3rem; }
+}

@@ -1,0 +1,325 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item active">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Reports</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <span id="currentUser">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <!-- Print-only brand header (hidden on screen, shown when printing) -->
+            <div class="print-only-brand" style="display:none;align-items:center;gap:1rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a3a8f;">
+                <img src="images/logo.svg" alt="Reliavolt Supply" style="width:70px;height:70px;object-fit:contain;">
+                <div>
+                    <strong style="font-size:1.2rem;color:#1a3a8f;display:block;">Reliavolt Supply</strong>
+                    <span style="font-size:0.85rem;color:#dc2626;">"We Go For Value" &mdash; Business Report</span>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" data-period="daily">📅 Daily</button>
+                <button class="tab-btn" data-period="weekly">🗓️ Weekly</button>
+                <button class="tab-btn" data-period="monthly">📆 Monthly</button>
+                <button class="tab-btn" data-period="profit">📈 Profit</button>
+                <button class="tab-btn" data-period="lowstock">⚠️ Low Stock</button>
+                <button class="tab-btn" data-period="chart">📊 Chart</button>
+                <button class="tab-btn" data-period="byshop">🏪 By Shop</button>
+            </div>
+
+            <!-- SHARED: Sales Summary + Table (Daily / Weekly / Monthly) -->
+            <div class="tab-content active" id="tab-sales">
+                <div class="rpt-section-header">
+                    <h2 class="rpt-section-title" id="salesSectionTitle">Today's Sales</h2>
+                    <button class="btn btn-secondary btn-sm no-print" id="printReportBtn">🖨️ Print</button>
+                </div>
+
+                <div class="rpt-stats-grid">
+                    <a href="sales.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">💰</div>
+                        <div class="rpt-stat-label">Revenue</div>
+                        <div class="rpt-stat-value primary" id="sumRevenue">Le 0</div>
+                        <div class="rpt-stat-hint">View Sales &rarr;</div>
+                    </a>
+                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">📈</div>
+                        <div class="rpt-stat-label">Profit</div>
+                        <div class="rpt-stat-value green" id="sumProfit">Le 0</div>
+                        <div class="rpt-stat-hint">Profit Report &rarr;</div>
+                    </a>
+                    <a href="sales.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">🛒</div>
+                        <div class="rpt-stat-label">Transactions</div>
+                        <div class="rpt-stat-value" id="sumCount">0</div>
+                        <div class="rpt-stat-hint">View Sales &rarr;</div>
+                    </a>
+                    <a href="sales.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">📊</div>
+                        <div class="rpt-stat-label">Avg Sale</div>
+                        <div class="rpt-stat-value" id="sumAvg">Le 0</div>
+                        <div class="rpt-stat-hint">View Sales &rarr;</div>
+                    </a>
+                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">%</div>
+                        <div class="rpt-stat-label">Margin</div>
+                        <div class="rpt-stat-value orange" id="sumMargin">0%</div>
+                        <div class="rpt-stat-hint">Profit Report &rarr;</div>
+                    </a>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Sales Transactions</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Receipt No</th>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                    <th>Profit</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportSalesBody">
+                                <tr><td colspan="7"><div class="empty-state"><span class="empty-icon">📊</span><p>No sales for this period.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profit Report -->
+            <div class="tab-content" id="tab-profit">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Profit by Product — All Time</span>
+                        <div class="card-header-stat">Total: <strong class="green-text" id="totalProfitAll">Le 0</strong></div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Product</th>
+                                    <th>Units Sold</th>
+                                    <th>Revenue</th>
+                                    <th>Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profitReportBody">
+                                <tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📈</span><p>No profit data yet.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low Stock Report -->
+            <div class="tab-content" id="tab-lowstock">
+                <div class="alert-banner warning-banner">
+                    <span class="alert-icon">⚠️</span>
+                    <span><strong id="lowStockCount">0</strong> items require restocking</span>
+                    <a href="inventory.html" class="btn btn-warning btn-sm ml-auto">Manage Stock</a>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Low Stock &amp; Out of Stock Report</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Brand</th>
+                                    <th>Current Qty</th>
+                                    <th>Status</th>
+                                    <th>Action Required</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowStockBody">
+                                <tr><td colspan="6"><div class="empty-state"><span class="empty-icon">✅</span><p>All products are sufficiently stocked.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="tab-content" id="tab-chart">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Sales Chart — Last 7 Days</span>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="legend-dot blue-dot"></span> Revenue</span>
+                            <span class="legend-item"><span class="legend-dot green-dot"></span> Profit</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- By Shop Report -->
+            <div class="tab-content" id="tab-byshop">
+                <div class="page-toolbar" style="margin-bottom:1.25rem;">
+                    <div class="toolbar-group">
+                        <label class="form-label" style="margin:0;white-space:nowrap;">Select Shop:</label>
+                        <select class="filter-select" id="shopReportSelect" style="min-width:200px;">
+                            <option value="">-- Choose a Shop --</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary btn-sm no-print" id="printShopReportBtn">🖨️ Print</button>
+                </div>
+
+                <div id="shopReportEmpty" class="card" style="display:block;">
+                    <div class="empty-state" style="padding:2.5rem;">
+                        <span class="empty-icon">🏪</span>
+                        <p>Select a shop above to view its report.</p>
+                    </div>
+                </div>
+
+                <div id="shopReportContent" style="display:none;">
+                    <div class="rpt-stats-grid" id="shopStatGrid">
+                        <!-- filled by JS -->
+                    </div>
+
+                    <div class="card" style="margin-top:1.25rem;">
+                        <div class="card-header">
+                            <span class="card-title" id="shopSalesTitle">Sales</span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Receipt No</th>
+                                        <th>Customer</th>
+                                        <th>Product</th>
+                                        <th>Qty</th>
+                                        <th>Total</th>
+                                        <th>Profit</th>
+                                        <th>Payment</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shopSalesBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top:1.25rem;">
+                        <div class="card-header">
+                            <span class="card-title">Staff Assigned to This Shop</span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shopStaffBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/reports.js"></script>
+</body>
+</html>
+
+
+
