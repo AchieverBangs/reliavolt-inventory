@@ -51,8 +51,14 @@ CREATE TABLE IF NOT EXISTS customers (
     name       VARCHAR(255) NOT NULL,
     phone      VARCHAR(50),
     address    TEXT,
+    shop_id    INTEGER      REFERENCES shops(id) ON DELETE SET NULL,
     joined_at  DATE         NOT NULL DEFAULT CURRENT_DATE
 );
+
+-- Per-shop customers (safe to run again) — existing rows backfill to Main Branch (id=1)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL;
+UPDATE customers SET shop_id = 1 WHERE shop_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_shop_id ON customers(shop_id);
 
 -- Sales
 CREATE TABLE IF NOT EXISTS sales (
@@ -186,15 +192,15 @@ BEGIN
 
         PERFORM setval('products_id_seq', (SELECT MAX(id) FROM products));
 
-        INSERT INTO customers (id, name, phone, address, joined_at) VALUES
-        (1, 'Mohamed Kamara',   '+232 76 123456', '12 Wilkinson Road, Freetown', '2025-01-15'),
-        (2, 'Aminata Sesay',    '+232 78 987654', '45 Congo Cross, Freetown',    '2025-02-03'),
-        (3, 'Foday Koroma',     '+232 99 112233', 'Lumley, Freetown',            '2025-02-20'),
-        (4, 'Fatmata Conteh',   '+232 77 445566', 'Murray Town, Freetown',       '2025-03-08'),
-        (5, 'Alpha Bangura',    '+232 76 778899', 'Calaba Town, Freetown',       '2025-03-15'),
-        (6, 'Hawa Turay',       '+232 78 334455', 'Kissy, Freetown',             '2025-04-01'),
-        (7, 'Ibrahim Mansaray', '+232 99 667788', 'Wellington, Freetown',        '2025-04-12'),
-        (8, 'Mariama Bah',      '+232 76 223344', 'Aberdeen, Freetown',          '2025-04-28');
+        INSERT INTO customers (id, name, phone, address, shop_id, joined_at) VALUES
+        (1, 'Mohamed Kamara',   '+232 76 123456', '12 Wilkinson Road, Freetown', 1, '2025-01-15'),
+        (2, 'Aminata Sesay',    '+232 78 987654', '45 Congo Cross, Freetown',    1, '2025-02-03'),
+        (3, 'Foday Koroma',     '+232 99 112233', 'Lumley, Freetown',            1, '2025-02-20'),
+        (4, 'Fatmata Conteh',   '+232 77 445566', 'Murray Town, Freetown',       1, '2025-03-08'),
+        (5, 'Alpha Bangura',    '+232 76 778899', 'Calaba Town, Freetown',       2, '2025-03-15'),
+        (6, 'Hawa Turay',       '+232 78 334455', 'Kissy, Freetown',             2, '2025-04-01'),
+        (7, 'Ibrahim Mansaray', '+232 99 667788', 'Wellington, Freetown',        2, '2025-04-12'),
+        (8, 'Mariama Bah',      '+232 76 223344', 'Aberdeen, Freetown',          2, '2025-04-28');
 
         PERFORM setval('customers_id_seq', (SELECT MAX(id) FROM customers));
 

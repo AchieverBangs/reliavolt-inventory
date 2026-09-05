@@ -5,7 +5,7 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 const MGMT_ROLES = ['Admin', 'Manager'];
 
-// GET /api/deliveries  (Delivery Person sees only their shop's deliveries)
+// GET /api/deliveries  (scoped to the caller's shop unless Admin; Admin may pass ?shop_id=)
 router.get('/', verifyToken, async (req, res) => {
     try {
         let query = `SELECT d.*, json_agg(
@@ -15,9 +15,15 @@ router.get('/', verifyToken, async (req, res) => {
                      LEFT JOIN delivery_items di ON di.delivery_id = d.id`;
         const vals = [];
 
-        if (req.user.role === 'Delivery Person' && req.user.shopId) {
+        if (req.user.role === 'Admin') {
+            if (req.query.shop_id) {
+                vals.push(req.query.shop_id);
+                query += ` WHERE d.from_shop_id = $${vals.length}`;
+            }
+        } else {
+            if (!req.user.shopId) return res.json([]);
             vals.push(req.user.shopId);
-            query += ` WHERE d.from_shop_id = $1`;
+            query += ` WHERE d.from_shop_id = $${vals.length}`;
         }
 
         query += ' GROUP BY d.id ORDER BY d.delivery_date DESC';
@@ -41,8 +47,12 @@ router.get('/:id', verifyToken, async (req, res) => {
              WHERE d.id = $1 GROUP BY d.id`,
             [req.params.id]
         );
-        if (!rows[0]) return res.status(404).json({ error: 'Delivery not found' });
-        res.json(rows[0]);
+        const delivery = rows[0];
+        if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
+        if (req.user.role !== 'Admin' && delivery.from_shop_id !== req.user.shopId) {
+            return res.status(404).json({ error: 'Delivery not found' });
+        }
+        res.json(delivery);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -51,8 +61,18 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // POST /api/deliveries  (Admin / Manager)
 router.post('/', verifyToken, requireRole(...MGMT_ROLES), async (req, res) => {
-    const { type, from_shop_id, to_name, to_address, to_shop_id, products, driver, phone, notes } = req.body;
-    if (!from_shop_id || !to_name) return res.status(400).json({ error: 'from_shop_id and to_name are required' });
+    const { type, to_name, to_address, to_shop_id, products, driver, phone, notes } = req.body;
+    if (!to_name) return res.status(400).json({ error: 'to_name is required' });
+
+    // Non-admins can only dispatch from their own shop; Admins must specify one
+    let from_shop_id;
+    if (req.user.role === 'Admin') {
+        from_shop_id = req.body.from_shop_id;
+        if (!from_shop_id) return res.status(400).json({ error: 'from_shop_id is required' });
+    } else {
+        if (!req.user.shopId) return res.status(400).json({ error: 'Your account has no shop assigned' });
+        from_shop_id = req.user.shopId;
+    }
 
     const client = await pool.connect();
     try {
@@ -114,9 +134,9 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM deliveries WHERE id = $1', [req.params.id]);
         if (!rows[0]) return res.status(404).json({ error: 'Delivery not found' });
 
-        // Delivery Person may only update deliveries from their shop
+        // Non-admins may only update deliveries from their own shop
         const d = rows[0];
-        if (req.user.role === 'Delivery Person' && d.from_shop_id !== req.user.shopId) {
+        if (req.user.role !== 'Admin' && d.from_shop_id !== req.user.shopId) {
             return res.status(403).json({ error: 'Access denied' });
         }
 

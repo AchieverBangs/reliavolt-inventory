@@ -81,8 +81,12 @@ router.post('/', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async 
         // Resolve customer name
         let cName = customer_name || 'Walk-in Customer';
         if (customer_id) {
-            const { rows: cuRows } = await client.query('SELECT name FROM customers WHERE id=$1', [customer_id]);
-            if (cuRows[0]) cName = cuRows[0].name;
+            const { rows: cuRows } = await client.query('SELECT name, shop_id FROM customers WHERE id=$1', [customer_id]);
+            if (!cuRows[0]) throw new Error('Customer not found');
+            if (req.user.role !== 'Admin' && cuRows[0].shop_id !== req.user.shopId) {
+                throw new Error('You can only sell to customers from your own shop');
+            }
+            cName = cuRows[0].name;
         }
 
         const { rows } = await client.query(
