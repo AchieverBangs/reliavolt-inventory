@@ -175,7 +175,7 @@ function initSidebar() {
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn && !logoutBtn.querySelector('.logout-label')) {
-        logoutBtn.innerHTML = '🚪 <span class="logout-label">Logout</span>';
+        logoutBtn.innerHTML = '⏻ <span class="logout-label">Logout</span>';
     }
 
     if (sidebar) {
