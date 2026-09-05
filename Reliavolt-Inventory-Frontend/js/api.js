@@ -46,6 +46,29 @@ async function apiFetch(path, options = {}) {
     return data;
 }
 
+// ===== FILE UPLOAD (multipart — no JSON Content-Type, browser sets the boundary) =====
+async function apiUpload(path, formData) {
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res;
+    try {
+        res = await fetch(API_BASE + path, { method: 'POST', headers, body: formData });
+    } catch {
+        throw new Error('Cannot reach the server. Make sure the backend is running.');
+    }
+
+    if (res.status === 401) {
+        if (getToken()) { clearToken(); window.location.href = 'index.html'; return null; }
+        throw new Error('Invalid credentials');
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+}
+
 // ===== API METHODS =====
 const api = {
     get:    (path)       => apiFetch(path),
@@ -53,4 +76,5 @@ const api = {
     put:    (path, body) => apiFetch(path, { method: 'PUT',    body: JSON.stringify(body) }),
     patch:  (path, body) => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body) }),
     delete: (path)       => apiFetch(path, { method: 'DELETE' }),
+    upload: (path, formData) => apiUpload(path, formData),
 };

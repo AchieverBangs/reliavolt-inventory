@@ -46,33 +46,9 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 });
 
-// POST /api/customers
-router.post('/', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async (req, res) => {
-    const { name, phone, address } = req.body;
-    if (!name) return res.status(400).json({ error: 'Customer name is required' });
-
-    // Non-admins can only add to their own shop; Admins must specify one
-    let shop_id;
-    if (req.user.role === 'Admin') {
-        shop_id = req.body.shop_id;
-        if (!shop_id) return res.status(400).json({ error: 'shop_id is required' });
-    } else {
-        if (!req.user.shopId) return res.status(400).json({ error: 'Your account has no shop assigned' });
-        shop_id = req.user.shopId;
-    }
-
-    try {
-        const { rows } = await pool.query(
-            'INSERT INTO customers (name, phone, address, shop_id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, phone || null, address || null, shop_id]
-        );
-        res.status(201).json(rows[0]);
-    } catch (err) {
-        if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+// Note: there is no POST / here on purpose — a customer record is only ever created
+// automatically as a side effect of recording a sale (see sales.js). Editing/deleting
+// an existing record (e.g. to fix a typo) is still allowed below.
 
 // PUT /api/customers/:id
 router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async (req, res) => {

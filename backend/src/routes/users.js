@@ -9,7 +9,22 @@ const router = express.Router();
 router.get('/', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
         const { rows } = await pool.query(
-            'SELECT id, name, username, email, role, shop_id, status, created_at FROM users ORDER BY name'
+            'SELECT id, name, username, email, role, shop_id, status, created_at, last_login FROM users ORDER BY name'
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/users/login-history  (Admin only) — most recent logins across all users
+router.get('/login-history', verifyToken, requireRole('Admin'), async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+        const { rows } = await pool.query(
+            'SELECT id, user_id, username, name, role, login_at FROM login_history ORDER BY login_at DESC LIMIT $1',
+            [limit]
         );
         res.json(rows);
     } catch (err) {

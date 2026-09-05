@@ -193,6 +193,29 @@
                 </div>
             </div>
 
+            <!-- Login History -->
+            <div class="card" style="margin-top:1.5rem;">
+                <div class="card-header">
+                    <span class="card-title">🕐 Login History</span>
+                    <span style="font-size:0.8rem;color:var(--text-light);">Most recent logins, all users</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Logged In At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loginHistoryBody">
+                            <tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🕐</span><p>Loading...</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>

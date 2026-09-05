@@ -35,7 +35,8 @@ function renderProductTable() {
         return matchSearch && matchFilter && matchShop;
     });
 
-    const colspan = isAdmin() ? 10 : 9;
+    const admin = isAdmin();
+    const colspan = admin ? 10 : 6;
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="${colspan}">
             <div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div>
@@ -46,9 +47,18 @@ function renderProductTable() {
 
     tbody.innerHTML = filtered.map((p, idx) => {
         const status = getStockStatus(p.quantity);
+        // cost_price/profit are stripped server-side for non-admins, so this cell only ever renders for Admin
         const profit = p.selling_price - p.cost_price;
         const margin = p.selling_price > 0 ? ((profit / p.selling_price) * 100).toFixed(1) : '0.0';
-        const shopCell = isAdmin() ? `<td><span class="badge badge-secondary">${escHtml(p.shop_name || '—')}</span></td>` : '';
+        const shopCell   = admin ? `<td><span class="badge badge-secondary">${escHtml(p.shop_name || '—')}</span></td>` : '';
+        const costCell   = admin ? `<td class="price-cell">${formatCurrency(p.cost_price)}</td>` : '';
+        const profitCell = admin ? `<td class="profit-cell">+${formatCurrency(profit)} <span style="font-size:0.75rem;color:var(--text-light)">(${margin}%)</span></td>` : '';
+        const actionsCell = admin ? `<td>
+                <div class="action-cell">
+                    <button class="btn btn-warning btn-sm" onclick="openEditProduct(${p.id})">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm"  onclick="deleteProduct(${p.id})">🗑️ Delete</button>
+                </div>
+            </td>` : '';
         return `<tr class="${status.rowCls}">
             <td>${idx + 1}</td>
             <td>
@@ -62,17 +72,12 @@ function renderProductTable() {
             </td>
             <td><span class="badge badge-info">${escHtml(p.category || '')}</span></td>
             ${shopCell}
-            <td class="price-cell">${formatCurrency(p.cost_price)}</td>
+            ${costCell}
             <td class="price-cell">${formatCurrency(p.selling_price)}</td>
-            <td class="profit-cell">+${formatCurrency(profit)} <span style="font-size:0.75rem;color:var(--text-light)">(${margin}%)</span></td>
+            ${profitCell}
             <td class="qty-cell">${p.quantity}</td>
             <td><span class="badge ${status.cls}">${status.label}</span></td>
-            <td>
-                <div class="action-cell">
-                    <button class="btn btn-warning btn-sm" onclick="openEditProduct(${p.id})">✏️ Edit</button>
-                    <button class="btn btn-danger btn-sm"  onclick="deleteProduct(${p.id})">🗑️ Delete</button>
-                </div>
-            </td>
+            ${actionsCell}
         </tr>`;
     }).join('');
 
@@ -87,8 +92,8 @@ function populateShopFilter() {
         _shops.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 }
 
-function populateProductShopSelect() {
-    const select = document.getElementById('productShop');
+function populateProductShopSelect(selectId = 'productShop') {
+    const select = document.getElementById(selectId);
     if (!select) return;
     const active = _shops.filter(s => s.status !== 'Inactive');
     select.innerHTML = '<option value="">-- Select Shop --</option>' +
@@ -133,21 +138,24 @@ async function saveProduct() {
     const name          = document.getElementById('productName').value.trim();
     const category      = document.getElementById('productCategory').value.trim();
     const brand         = document.getElementById('productBrand').value.trim();
-    const cost_price    = parseFloat(document.getElementById('productCost').value);
     const selling_price = parseFloat(document.getElementById('productSelling').value);
     const quantity      = parseInt(document.getElementById('productQuantity').value);
     const icon          = document.getElementById('productIcon').value.trim() || '📦';
 
-    if (!name || !category || !brand || isNaN(cost_price) || isNaN(selling_price) || isNaN(quantity)) {
+    if (!name || !category || !brand || isNaN(selling_price) || isNaN(quantity)) {
         showToast('Please fill in all required fields.', 'error');
         return;
     }
-    if (selling_price <= cost_price) { showToast('Selling price must be greater than cost price.', 'warning'); return; }
-    if (quantity < 0)                { showToast('Quantity cannot be negative.', 'error'); return; }
+    if (quantity < 0) { showToast('Quantity cannot be negative.', 'error'); return; }
 
-    const payload = { name, category, brand, cost_price, selling_price, quantity, icon };
+    const payload = { name, category, brand, selling_price, quantity, icon };
 
+    // Cost price and shop assignment are Admin-only fields
     if (isAdmin()) {
+        const cost_price = parseFloat(document.getElementById('productCost').value) || 0;
+        if (selling_price <= cost_price) { showToast('Selling price must be greater than cost price.', 'warning'); return; }
+        payload.cost_price = cost_price;
+
         const shopId = document.getElementById('productShop')?.value;
         if (!shopId) { showToast('Please select a shop.', 'error'); return; }
         payload.shop_id = parseInt(shopId);
@@ -211,6 +219,54 @@ function clearPricePreview() {
     setEl('previewCost',    `${c} 0`);
     setEl('previewSelling', `${c} 0`);
     setEl('previewProfit',  `${c} 0 (0%)`);
+}
+
+// ===== IMPORT (Excel/CSV) =====
+function openImportModal() {
+    document.getElementById('importFile').value = '';
+    const resultEl = document.getElementById('importResult');
+    resultEl.style.display = 'none';
+    resultEl.innerHTML = '';
+    if (isAdmin()) populateProductShopSelect('importShop');
+    openModal('importModal');
+}
+
+async function runImport() {
+    const file = document.getElementById('importFile').files[0];
+    if (!file) { showToast('Please choose a file to upload.', 'error'); return; }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (isAdmin()) {
+        const shopId = document.getElementById('importShop')?.value;
+        if (!shopId) { showToast('Please select a shop.', 'error'); return; }
+        formData.append('shop_id', shopId);
+    }
+
+    const btn = document.getElementById('runImportBtn');
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+
+    try {
+        const result = await api.upload('/api/products/import', formData);
+        const resultEl = document.getElementById('importResult');
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = `<div style="color:#16a34a;font-weight:600;">✅ Imported ${result.imported} of ${result.total} row(s).</div>` +
+            (result.skipped.length ? `<div style="margin-top:0.5rem;color:#dc2626;">Skipped ${result.skipped.length} row(s):
+                <ul style="margin:0.25rem 0 0 1.2rem;">${result.skipped.map(s => `<li>Row ${s.row}: ${escHtml(s.reason)}</li>`).join('')}</ul></div>` : '');
+        showToast(`Imported ${result.imported} product(s).`, 'success');
+
+        _products = await api.get('/api/products');
+        renderInventoryStats();
+        renderProductTable();
+        populateCategoryFilter();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Upload & Import';
+    }
 }
 
 // ===== CATEGORY DROPDOWN =====
@@ -288,4 +344,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('addProductBtn')?.addEventListener('click', openAddProduct);
     document.getElementById('saveProductBtn')?.addEventListener('click', saveProduct);
+    document.getElementById('importProductsBtn')?.addEventListener('click', openImportModal);
+    document.getElementById('runImportBtn')?.addEventListener('click', runImport);
 });

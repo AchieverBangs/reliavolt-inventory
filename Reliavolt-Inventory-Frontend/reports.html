@@ -97,7 +97,7 @@
                 <button class="tab-btn active" data-period="daily">📅 Daily</button>
                 <button class="tab-btn" data-period="weekly">🗓️ Weekly</button>
                 <button class="tab-btn" data-period="monthly">📆 Monthly</button>
-                <button class="tab-btn" data-period="profit">📈 Profit</button>
+                <button class="tab-btn nav-admin hidden" data-period="profit">📈 Profit</button>
                 <button class="tab-btn" data-period="lowstock">⚠️ Low Stock</button>
                 <button class="tab-btn" data-period="chart">📊 Chart</button>
                 <button class="tab-btn" data-period="byshop">🏪 By Shop</button>
@@ -117,7 +117,7 @@
                         <div class="rpt-stat-value primary" id="sumRevenue">Le 0</div>
                         <div class="rpt-stat-hint">View Sales &rarr;</div>
                     </a>
-                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link">
+                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link nav-admin hidden">
                         <div class="rpt-stat-icon">📈</div>
                         <div class="rpt-stat-label">Profit</div>
                         <div class="rpt-stat-value green" id="sumProfit">Le 0</div>
@@ -135,7 +135,7 @@
                         <div class="rpt-stat-value" id="sumAvg">Le 0</div>
                         <div class="rpt-stat-hint">View Sales &rarr;</div>
                     </a>
-                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link">
+                    <a href="reports.html#profit" class="card rpt-stat-card rpt-stat-link nav-admin hidden">
                         <div class="rpt-stat-icon">%</div>
                         <div class="rpt-stat-label">Margin</div>
                         <div class="rpt-stat-value orange" id="sumMargin">0%</div>
@@ -156,7 +156,7 @@
                                     <th>Product</th>
                                     <th>Qty</th>
                                     <th>Total</th>
-                                    <th>Profit</th>
+                                    <th class="nav-admin hidden">Profit</th>
                                     <th>Date</th>
                                 </tr>
                             </thead>
@@ -232,7 +232,7 @@
                         <span class="card-title">Sales Chart — Last 7 Days</span>
                         <div class="chart-legend">
                             <span class="legend-item"><span class="legend-dot blue-dot"></span> Revenue</span>
-                            <span class="legend-item"><span class="legend-dot green-dot"></span> Profit</span>
+                            <span class="legend-item nav-admin hidden"><span class="legend-dot green-dot"></span> Profit</span>
                         </div>
                     </div>
                     <div class="card-body">
@@ -278,7 +278,7 @@
                                         <th>Product</th>
                                         <th>Qty</th>
                                         <th>Total</th>
-                                        <th>Profit</th>
+                                        <th class="nav-admin hidden">Profit</th>
                                         <th>Payment</th>
                                         <th>Date</th>
                                     </tr>

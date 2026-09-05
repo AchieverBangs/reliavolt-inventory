@@ -50,6 +50,13 @@ router.post('/login', loginLimiter, async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
         );
 
+        // Record the login for the admin's audit trail (best-effort — never block login on this)
+        pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]).catch(console.error);
+        pool.query(
+            'INSERT INTO login_history (user_id, username, name, role) VALUES ($1, $2, $3, $4)',
+            [user.id, user.username, user.name, user.role]
+        ).catch(console.error);
+
         res.json({
             token,
             user: { id: user.id, name: user.name, username: user.username, role: user.role, shopId: user.shop_id },

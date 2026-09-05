@@ -54,30 +54,6 @@ function renderCustomers(filter = '') {
     }).join('');
 }
 
-// ===== ADD CUSTOMER =====
-async function addCustomer() {
-    const name    = document.getElementById('custName').value.trim();
-    const phone   = document.getElementById('custPhone').value.trim();
-    const address = document.getElementById('custAddress').value.trim();
-
-    if (!name || !phone) { showToast('Name and phone number are required.', 'error'); return; }
-
-    const duplicate = _customers.find(c => c.phone === phone);
-    if (duplicate) { showToast('A customer with this phone number already exists.', 'warning'); return; }
-
-    try {
-        const created = await api.post('/api/customers', { name, phone, address: address || '—' });
-        _customers.push(created);
-        showToast(`${name} added as a customer.`, 'success');
-        closeModal('addCustomerModal');
-        document.getElementById('customerForm').reset();
-        renderCustomers();
-        updateCustomerSummary();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
-}
-
 // ===== DELETE CUSTOMER =====
 async function deleteCustomer(id) {
     const customer = _customers.find(c => c.id === id);
@@ -164,6 +140,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderCustomers(e.target.value.toLowerCase().trim());
     });
 
-    document.getElementById('addCustomerBtn')?.addEventListener('click', () => openModal('addCustomerModal'));
-    document.getElementById('saveCustomerBtn')?.addEventListener('click', addCustomer);
 });

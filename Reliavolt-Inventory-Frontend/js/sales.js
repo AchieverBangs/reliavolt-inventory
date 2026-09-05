@@ -69,7 +69,7 @@ function onProductChange() {
 
     currentSale.productId = parseInt(opt.value);
     currentSale.unitPrice = parseFloat(opt.dataset.price);
-    currentSale.unitCost  = parseFloat(opt.dataset.cost);
+    currentSale.unitCost  = parseFloat(opt.dataset.cost) || 0; // absent for non-Admins — cost is hidden from them anyway
 
     const maxQty   = parseInt(opt.dataset.qty);
     const qtyInput = document.getElementById('saleQty');
@@ -217,9 +217,10 @@ function renderRecentSales() {
     const tbody = document.getElementById('recentSalesBody');
     if (!tbody) return;
 
+    const admin = isAdmin();
     const sales = _sales.slice(0, 20);
     if (!sales.length) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded yet.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${admin ? 8 : 7}"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded yet.</p></div></td></tr>`;
         return;
     }
 
@@ -230,10 +231,10 @@ function renderRecentSales() {
             <td>${escHtml(s.product_name)}</td>
             <td>${s.qty}</td>
             <td><strong>${formatCurrency(s.total)}</strong></td>
-            <td><span style="color:#16a34a;font-weight:600;">${formatCurrency(s.profit)}</span></td>
+            ${admin ? `<td><span style="color:#16a34a;font-weight:600;">${formatCurrency(s.profit)}</span></td>` : ''}
             <td><span class="badge badge-secondary">${escHtml(s.payment_method || 'Cash')}</span></td>
             <td>
-                ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : '—'}
+                ${admin ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : '—'}
             </td>
         </tr>`).join('');
 }

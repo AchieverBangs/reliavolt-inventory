@@ -11,13 +11,14 @@ function renderDashboardStats() {
     const monthlySales = _sales.filter(s => isSameMonth(s.sale_date));
 
     const totalSalesToday = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
-    const profitToday     = todaySales.reduce((sum, s) => sum + Number(s.profit), 0);
-    const profitMonthly   = monthlySales.reduce((sum, s) => sum + Number(s.profit), 0);
+    // cost_price/profit are stripped server-side for non-Admins — guard against NaN even though these cards are hidden from them
+    const profitToday     = todaySales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
+    const profitMonthly   = monthlySales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
 
     const lowStock = _products.filter(p => p.quantity > 0 && p.quantity <= LOW_STOCK_THRESHOLD);
     const outStock = _products.filter(p => p.quantity === 0);
 
-    const costValue    = _products.reduce((sum, p) => sum + Number(p.cost_price)    * Number(p.quantity), 0);
+    const costValue    = _products.reduce((sum, p) => sum + (Number(p.cost_price) || 0) * Number(p.quantity), 0);
     const sellingValue = _products.reduce((sum, p) => sum + Number(p.selling_price) * Number(p.quantity), 0);
     const scopeSuffix  = isAdmin() ? ' (All Shops)' : ' (Your Shop)';
 
@@ -135,9 +136,11 @@ function renderSalesChart() {
         const dateStr = d.toISOString().split('T')[0];
         const daySales = _sales.filter(s => (s.sale_date || '').split('T')[0] === dateStr);
         labels.push(dayNames[d.getDay()]);
-        revenueData.push(daySales.reduce((sum, s) => sum + Number(s.total),  0));
-        profitData.push( daySales.reduce((sum, s) => sum + Number(s.profit), 0));
+        revenueData.push(daySales.reduce((sum, s) => sum + Number(s.total), 0));
+        profitData.push( daySales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0)); // 0 for non-Admins (profit is stripped)
     }
+
+    const showProfit = isAdmin();
 
     const W       = canvas.width  = canvas.offsetWidth || 600;
     const H       = canvas.height = 220;
@@ -175,12 +178,15 @@ function renderSalesChart() {
         const revGrad = ctx.createLinearGradient(0, H - padB - revH, 0, H - padB);
         revGrad.addColorStop(0, '#1a3a8f'); revGrad.addColorStop(1, '#93c5fd');
         ctx.fillStyle = revGrad;
-        roundRect(ctx, x + barGroupW * 0.06, H - padB - revH, bw, revH, 3);
+        const revX = showProfit ? x + barGroupW * 0.06 : x + barGroupW * 0.34;
+        roundRect(ctx, revX, H - padB - revH, showProfit ? bw : bw * 1.4, revH, 3);
 
-        const profGrad = ctx.createLinearGradient(0, H - padB - profH, 0, H - padB);
-        profGrad.addColorStop(0, '#22c55e'); profGrad.addColorStop(1, '#86efac');
-        ctx.fillStyle = profGrad;
-        roundRect(ctx, x + barGroupW * 0.52, H - padB - profH, bw, profH, 3);
+        if (showProfit) {
+            const profGrad = ctx.createLinearGradient(0, H - padB - profH, 0, H - padB);
+            profGrad.addColorStop(0, '#22c55e'); profGrad.addColorStop(1, '#86efac');
+            ctx.fillStyle = profGrad;
+            roundRect(ctx, x + barGroupW * 0.52, H - padB - profH, bw, profH, 3);
+        }
 
         ctx.fillStyle = dayColor;
         ctx.font = '11px Segoe UI, sans-serif';

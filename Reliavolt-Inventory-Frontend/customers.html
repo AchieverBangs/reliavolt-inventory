@@ -118,7 +118,7 @@
                     </div>
                     <span class="badge badge-secondary" id="customerCount"></span>
                 </div>
-                <button class="btn btn-primary" id="addCustomerBtn">➕ Add Customer</button>
+                <span style="font-size:0.8rem;color:var(--text-light);">Customers are added automatically the first time their name is used in a sale.</span>
             </div>
 
             <!-- Customer Table -->
@@ -143,36 +143,6 @@
             </div>
 
         </main>
-    </div>
-</div>
-
-<!-- Add Customer Modal -->
-<div class="modal-overlay" id="addCustomerModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h2 class="modal-title">Add New Customer</h2>
-            <button class="modal-close" aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="customerForm" novalidate>
-                <div class="form-group">
-                    <label class="form-label" for="custName">Full Name *</label>
-                    <input type="text" class="form-control" id="custName" placeholder="e.g. Mohamed Kamara" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="custPhone">Phone Number *</label>
-                    <input type="tel" class="form-control" id="custPhone" placeholder="e.g. +232 76 123456" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="custAddress">Address</label>
-                    <input type="text" class="form-control" id="custAddress" placeholder="e.g. 12 Wilkinson Road, Freetown">
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary modal-close">Cancel</button>
-            <button class="btn btn-primary" id="saveCustomerBtn">Add Customer</button>
-        </div>
     </div>
 </div>
 

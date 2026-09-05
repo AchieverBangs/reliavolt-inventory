@@ -14,7 +14,7 @@ function getSalesByPeriod(period) {
 
 function calcStats(sales) {
     const revenue = sales.reduce((sum, s) => sum + Number(s.total), 0);
-    const profit  = sales.reduce((sum, s) => sum + Number(s.profit), 0);
+    const profit  = sales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0); // stripped server-side for non-Admins
     return {
         count:  sales.length,
         revenue,
@@ -39,12 +39,13 @@ function renderSalesSummary(period) {
 
 // ===== RENDER SALES TABLE =====
 function renderSalesTable(period) {
+    const admin = isAdmin();
     const sales = getSalesByPeriod(period).slice();
     const tbody = document.getElementById('reportSalesBody');
     if (!tbody) return;
 
     if (!sales.length) {
-        tbody.innerHTML = `<tr><td colspan="7">
+        tbody.innerHTML = `<tr><td colspan="${admin ? 7 : 6}">
             <div class="empty-state"><span class="empty-icon">📊</span><p>No sales for this period.</p></div>
         </td></tr>`;
         return;
@@ -56,7 +57,7 @@ function renderSalesTable(period) {
         <td>${escHtml(s.product_name)}</td>
         <td>${s.qty}</td>
         <td><strong>${formatCurrency(s.total)}</strong></td>
-        <td class="profit-text">${formatCurrency(s.profit)}</td>
+        ${admin ? `<td class="profit-text">${formatCurrency(s.profit)}</td>` : ''}
         <td>${formatDate(s.sale_date)}</td>
     </tr>`).join('');
 }
@@ -138,10 +139,11 @@ function renderWeeklyChart() {
         const dateStr = d.toISOString().split('T')[0];
         const daySales = _sales.filter(s => (s.sale_date || '').split('T')[0] === dateStr);
         labels.push(dayNames[d.getDay()]);
-        revenueData.push(daySales.reduce((sum, s) => sum + Number(s.total),  0));
-        profitData.push( daySales.reduce((sum, s) => sum + Number(s.profit), 0));
+        revenueData.push(daySales.reduce((sum, s) => sum + Number(s.total), 0));
+        profitData.push( daySales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0));
     }
 
+    const showProfit = isAdmin();
     const W      = canvas.width  = canvas.offsetWidth || 700;
     const H      = canvas.height = 220;
     const padL = 65, padR = 20, padT = 20, padB = 40;
@@ -171,12 +173,15 @@ function renderWeeklyChart() {
         const rg = ctx.createLinearGradient(0, H - padB - revH, 0, H - padB);
         rg.addColorStop(0, '#1a3a8f'); rg.addColorStop(1, '#93c5fd');
         ctx.fillStyle = rg;
-        drawRoundRect(ctx, x + padL - padT + barGroupW * 0.06, H - padB - revH, bw, revH, 3);
+        const revX = showProfit ? x + padL - padT + barGroupW * 0.06 : x + padL - padT + barGroupW * 0.34;
+        drawRoundRect(ctx, revX, H - padB - revH, showProfit ? bw : bw * 1.4, revH, 3);
 
-        const pg = ctx.createLinearGradient(0, H - padB - profH, 0, H - padB);
-        pg.addColorStop(0, '#22c55e'); pg.addColorStop(1, '#86efac');
-        ctx.fillStyle = pg;
-        drawRoundRect(ctx, x + padL - padT + barGroupW * 0.52, H - padB - profH, bw, profH, 3);
+        if (showProfit) {
+            const pg = ctx.createLinearGradient(0, H - padB - profH, 0, H - padB);
+            pg.addColorStop(0, '#22c55e'); pg.addColorStop(1, '#86efac');
+            ctx.fillStyle = pg;
+            drawRoundRect(ctx, x + padL - padT + barGroupW * 0.52, H - padB - profH, bw, profH, 3);
+        }
 
         ctx.fillStyle = '#64748b';
         ctx.font = '11px Segoe UI, sans-serif';
@@ -211,6 +216,7 @@ function populateShopReportSelect() {
 }
 
 function renderShopReport(shopId) {
+    const admin = isAdmin();
     const id   = parseInt(shopId);
     const shop = _shops.find(s => s.id === id);
     if (!shop) return;
@@ -219,8 +225,8 @@ function renderShopReport(shopId) {
     document.getElementById('shopReportEmpty').style.display   = 'none';
 
     const sales   = _sales.filter(s => s.shop_id === id);
-    const revenue = sales.reduce((sum, s) => sum + Number(s.total),  0);
-    const profit  = sales.reduce((sum, s) => sum + Number(s.profit), 0);
+    const revenue = sales.reduce((sum, s) => sum + Number(s.total), 0);
+    const profit  = sales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
     const margin  = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0.0';
 
     setEl('shopSalesTitle', `Sales — ${shop.name}`);
@@ -238,27 +244,27 @@ function renderShopReport(shopId) {
                 <div class="rpt-stat-label">Revenue</div>
                 <div class="rpt-stat-value primary">${formatCurrency(revenue)}</div>
             </div>
-            <div class="card rpt-stat-card">
+            ${admin ? `<div class="card rpt-stat-card">
                 <div class="rpt-stat-icon">📈</div>
                 <div class="rpt-stat-label">Profit</div>
                 <div class="rpt-stat-value green">${formatCurrency(profit)}</div>
-            </div>
+            </div>` : ''}
             <div class="card rpt-stat-card">
                 <div class="rpt-stat-icon">🛒</div>
                 <div class="rpt-stat-label">Transactions</div>
                 <div class="rpt-stat-value">${sales.length}</div>
             </div>
-            <div class="card rpt-stat-card">
+            ${admin ? `<div class="card rpt-stat-card">
                 <div class="rpt-stat-icon">%</div>
                 <div class="rpt-stat-label">Margin</div>
                 <div class="rpt-stat-value orange">${margin}%</div>
-            </div>`;
+            </div>` : ''}`;
     }
 
     const salesBody = document.getElementById('shopSalesBody');
     if (salesBody) {
         if (!sales.length) {
-            salesBody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded for this shop.</p></div></td></tr>`;
+            salesBody.innerHTML = `<tr><td colspan="${admin ? 8 : 7}"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded for this shop.</p></div></td></tr>`;
         } else {
             salesBody.innerHTML = sales.slice().map(s => `<tr>
                 <td><strong>${escHtml(s.receipt_no)}</strong></td>
@@ -266,7 +272,7 @@ function renderShopReport(shopId) {
                 <td>${escHtml(s.product_name)}</td>
                 <td>${s.qty}</td>
                 <td><strong>${formatCurrency(s.total)}</strong></td>
-                <td class="profit-text">${formatCurrency(s.profit)}</td>
+                ${admin ? `<td class="profit-text">${formatCurrency(s.profit)}</td>` : ''}
                 <td><span class="badge badge-secondary">${escHtml(s.payment_method || '—')}</span></td>
                 <td>${formatDate(s.sale_date)}</td>
             </tr>`).join('');
@@ -292,6 +298,7 @@ function renderShopReport(shopId) {
 
 // ===== TAB SWITCHING =====
 function switchReportTab(period) {
+    if (period === 'profit' && !isAdmin()) period = 'daily'; // profit tab is Admin-only; don't let a #profit URL bypass that
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 

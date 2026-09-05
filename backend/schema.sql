@@ -26,6 +26,19 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
+-- Login audit trail (Admin can see every user's login times)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS login_history (
+    id       SERIAL PRIMARY KEY,
+    user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    username VARCHAR(100),
+    name     VARCHAR(255),
+    role     VARCHAR(50),
+    login_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_login_history_login_at ON login_history(login_at DESC);
+
 -- Products (inventory)
 CREATE TABLE IF NOT EXISTS products (
     id            SERIAL PRIMARY KEY,

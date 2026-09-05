@@ -108,6 +108,10 @@ function renderUserTable() {
                         <span class="uc-info-icon">📅</span>
                         <span class="uc-info-text">${formatDate(u.created_at)}</span>
                     </div>
+                    <div class="uc-info-row">
+                        <span class="uc-info-icon">🕐</span>
+                        <span class="uc-info-text">${u.last_login ? 'Last login: ' + formatDateTime(u.last_login) : 'Never logged in'}</span>
+                    </div>
                 </div>
 
                 <div class="user-card-footer">
@@ -270,6 +274,28 @@ async function deleteUser(id) {
     });
 }
 
+// ===== LOGIN HISTORY =====
+async function renderLoginHistory() {
+    const tbody = document.getElementById('loginHistoryBody');
+    if (!tbody) return;
+
+    try {
+        const history = await api.get('/api/users/login-history?limit=100');
+        if (!history.length) {
+            tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🕐</span><p>No logins recorded yet.</p></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = history.map(h => `<tr>
+            <td><strong>${escHtml(h.name || '—')}</strong></td>
+            <td>@${escHtml(h.username || '—')}</td>
+            <td><span class="role-badge ${ROLE_BADGE_CLASS[h.role] || 'role-cashier'}">${escHtml(h.role || '—')}</span></td>
+            <td>${formatDateTime(h.login_at)}</td>
+        </tr>`).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4">Failed to load login history: ${escHtml(err.message)}</td></tr>`;
+    }
+}
+
 // ===== HELPERS =====
 function setEl(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
@@ -305,6 +331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderUserStats();
     renderUserTable();
+    renderLoginHistory();
 
     if (hash === 'active' || hash === 'inactive' || hash === 'usersGrid') {
         document.getElementById('usersGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
