@@ -114,6 +114,14 @@ INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 -- Add email to users (safe to run again)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 
+-- Tracks whether demo seed data has already been inserted once, so deleting a
+-- demo row doesn't cause it to reappear on the next deploy/restart.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS seeded BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Existing installations already have this data — mark them seeded now so the
+-- guarded block below doesn't try to re-insert rows that already exist.
+UPDATE settings SET seeded = TRUE WHERE id = 1 AND EXISTS (SELECT 1 FROM users);
+
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id         SERIAL PRIMARY KEY,
@@ -125,65 +133,71 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 );
 
 -- ============================================================
--- Seed Data (safe to re-run — uses ON CONFLICT DO NOTHING)
+-- Seed Data — runs ONCE only, guarded by settings.seeded.
+-- Without this guard, deleting a demo row would make it reappear
+-- on the next deploy/restart (ON CONFLICT DO NOTHING only skips
+-- a row that still exists — a deleted id is "free" again).
 -- ============================================================
 
-INSERT INTO shops (id, name, address, phone, manager, status, created_at) VALUES
-(1, 'Main Branch',         '25 Siaka Stevens Street, Freetown', '+232 76 111222', 'Admin Owner',   'Active',  '2025-01-01'),
-(2, 'Congo Cross Branch',  '8 Congo Cross Road, Freetown',      '+232 78 333444', 'Fatima Jalloh', 'Active',  '2025-03-01'),
-(3, 'Wellington Branch',   '15 Wellington Street, Freetown',    '+232 99 555666', 'TBD',           'Planned', '2025-04-10')
-ON CONFLICT (id) DO NOTHING;
+DO $$
+BEGIN
+    IF NOT (SELECT seeded FROM settings WHERE id = 1) THEN
 
--- Reset shop sequence
-SELECT setval('shops_id_seq', (SELECT MAX(id) FROM shops));
+        INSERT INTO shops (id, name, address, phone, manager, status, created_at) VALUES
+        (1, 'Main Branch',         '25 Siaka Stevens Street, Freetown', '+232 76 111222', 'Admin Owner',   'Active',  '2025-01-01'),
+        (2, 'Congo Cross Branch',  '8 Congo Cross Road, Freetown',      '+232 78 333444', 'Fatima Jalloh', 'Active',  '2025-03-01'),
+        (3, 'Wellington Branch',   '15 Wellington Street, Freetown',    '+232 99 555666', 'TBD',           'Planned', '2025-04-10');
 
-INSERT INTO users (id, name, username, password_hash, role, shop_id, status, created_at) VALUES
-(1, 'Admin Owner',     'admin',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin',           NULL, 'Active',   '2025-01-01'),
-(2, 'Amadu Koroma',    'amadu',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cashier',         1,    'Active',   '2025-02-15'),
-(3, 'Fatima Jalloh',   'fatima',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Manager',         2,    'Active',   '2025-03-01'),
-(4, 'Ibrahim Sesay',   'ibrahim', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Stock Manager',   1,    'Inactive', '2025-03-20'),
-(5, 'Mariama Bangura', 'mariama', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cashier',         2,    'Active',   '2025-04-05'),
-(6, 'Sorie Kamara',    'sorie',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Delivery Person', 1,    'Active',   '2025-04-20'),
-(7, 'Foday Turay',     'foday',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Delivery Person', 2,    'Active',   '2025-05-01')
-ON CONFLICT (id) DO NOTHING;
+        PERFORM setval('shops_id_seq', (SELECT MAX(id) FROM shops));
 
--- NOTE: The password_hash above is bcrypt of 'password' (Laravel default fixture hash).
--- After setup, run: node scripts/seed-passwords.js   to set real passwords.
+        INSERT INTO users (id, name, username, password_hash, role, shop_id, status, created_at) VALUES
+        (1, 'Admin Owner',     'admin',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin',           NULL, 'Active',   '2025-01-01'),
+        (2, 'Amadu Koroma',    'amadu',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cashier',         1,    'Active',   '2025-02-15'),
+        (3, 'Fatima Jalloh',   'fatima',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Manager',         2,    'Active',   '2025-03-01'),
+        (4, 'Ibrahim Sesay',   'ibrahim', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Stock Manager',   1,    'Inactive', '2025-03-20'),
+        (5, 'Mariama Bangura', 'mariama', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cashier',         2,    'Active',   '2025-04-05'),
+        (6, 'Sorie Kamara',    'sorie',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Delivery Person', 1,    'Active',   '2025-04-20'),
+        (7, 'Foday Turay',     'foday',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Delivery Person', 2,    'Active',   '2025-05-01');
 
-SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
+        -- NOTE: password_hash above is bcrypt of 'password' (fixture default).
+        -- Run node scripts/seed-passwords.js afterward to set real passwords.
 
-INSERT INTO products (id, name, category, brand, cost_price, selling_price, quantity, icon) VALUES
-(1,  'LED Bulb 9W',                 'Lighting',      'Philips',        15000,   22000,   150, '💡'),
-(2,  'LED Bulb 18W',                'Lighting',      'Philips',        25000,   38000,   80,  '💡'),
-(3,  'Extension Cord 3m',           'Accessories',   'Generic',        25000,   40000,   8,   '🔌'),
-(4,  'Extension Cord 5m',           'Accessories',   'Generic',        38000,   58000,   5,   '🔌'),
-(5,  'Circuit Breaker 32A',         'Protection',    'Schneider',      85000,   130000,  0,   '⚡'),
-(6,  'Circuit Breaker 16A',         'Protection',    'Schneider',      65000,   100000,  22,  '⚡'),
-(7,  'Power Strip 5-outlet',        'Accessories',   'Goldstar',       42000,   65000,   35,  '🔌'),
-(8,  'Wall Socket (Double)',        'Fittings',      'MK Electric',    18000,   28000,   60,  '🔌'),
-(9,  'Light Switch (Single)',       'Fittings',      'MK Electric',    12000,   20000,   3,   '💡'),
-(10, 'PVC Conduit Pipe 2m',         'Conduits',      'Clipsal',        8000,    14000,   200, '📏'),
-(11, 'Electrical Cable 2.5mm (per m)', 'Cables',     'Nexans',         5500,    8000,    500, '🔧'),
-(12, 'Electrical Cable 4mm (per m)',   'Cables',     'Nexans',         9000,    13000,   300, '🔧'),
-(13, 'Inverter 1000W',              'Solar & Power', 'Luminous',       850000,  1200000, 6,   '🔋'),
-(14, 'Solar Panel 100W',            'Solar & Power', 'Canadian Solar', 650000,  950000,  0,   '☀️'),
-(15, 'Battery 12V 100Ah',           'Solar & Power', 'Ritar',          750000,  1050000, 4,   '🔋'),
-(16, 'MCB 20A (DIN Rail)',          'Protection',    'Legrand',        45000,   70000,   18,  '⚡'),
-(17, 'Ceiling Fan 52"',             'Appliances',    'Havells',        480000,  680000,  7,   '🌀'),
-(18, 'Tape Insulation Roll',        'Accessories',   '3M',             5000,    8000,    9,   '🔧')
-ON CONFLICT (id) DO NOTHING;
+        PERFORM setval('users_id_seq', (SELECT MAX(id) FROM users));
 
-SELECT setval('products_id_seq', (SELECT MAX(id) FROM products));
+        INSERT INTO products (id, name, category, brand, cost_price, selling_price, quantity, icon) VALUES
+        (1,  'LED Bulb 9W',                 'Lighting',      'Philips',        15000,   22000,   150, '💡'),
+        (2,  'LED Bulb 18W',                'Lighting',      'Philips',        25000,   38000,   80,  '💡'),
+        (3,  'Extension Cord 3m',           'Accessories',   'Generic',        25000,   40000,   8,   '🔌'),
+        (4,  'Extension Cord 5m',           'Accessories',   'Generic',        38000,   58000,   5,   '🔌'),
+        (5,  'Circuit Breaker 32A',         'Protection',    'Schneider',      85000,   130000,  0,   '⚡'),
+        (6,  'Circuit Breaker 16A',         'Protection',    'Schneider',      65000,   100000,  22,  '⚡'),
+        (7,  'Power Strip 5-outlet',        'Accessories',   'Goldstar',       42000,   65000,   35,  '🔌'),
+        (8,  'Wall Socket (Double)',        'Fittings',      'MK Electric',    18000,   28000,   60,  '🔌'),
+        (9,  'Light Switch (Single)',       'Fittings',      'MK Electric',    12000,   20000,   3,   '💡'),
+        (10, 'PVC Conduit Pipe 2m',         'Conduits',      'Clipsal',        8000,    14000,   200, '📏'),
+        (11, 'Electrical Cable 2.5mm (per m)', 'Cables',     'Nexans',         5500,    8000,    500, '🔧'),
+        (12, 'Electrical Cable 4mm (per m)',   'Cables',     'Nexans',         9000,    13000,   300, '🔧'),
+        (13, 'Inverter 1000W',              'Solar & Power', 'Luminous',       850000,  1200000, 6,   '🔋'),
+        (14, 'Solar Panel 100W',            'Solar & Power', 'Canadian Solar', 650000,  950000,  0,   '☀️'),
+        (15, 'Battery 12V 100Ah',           'Solar & Power', 'Ritar',          750000,  1050000, 4,   '🔋'),
+        (16, 'MCB 20A (DIN Rail)',          'Protection',    'Legrand',        45000,   70000,   18,  '⚡'),
+        (17, 'Ceiling Fan 52"',             'Appliances',    'Havells',        480000,  680000,  7,   '🌀'),
+        (18, 'Tape Insulation Roll',        'Accessories',   '3M',             5000,    8000,    9,   '🔧');
 
-INSERT INTO customers (id, name, phone, address, joined_at) VALUES
-(1, 'Mohamed Kamara',   '+232 76 123456', '12 Wilkinson Road, Freetown', '2025-01-15'),
-(2, 'Aminata Sesay',    '+232 78 987654', '45 Congo Cross, Freetown',    '2025-02-03'),
-(3, 'Foday Koroma',     '+232 99 112233', 'Lumley, Freetown',            '2025-02-20'),
-(4, 'Fatmata Conteh',   '+232 77 445566', 'Murray Town, Freetown',       '2025-03-08'),
-(5, 'Alpha Bangura',    '+232 76 778899', 'Calaba Town, Freetown',       '2025-03-15'),
-(6, 'Hawa Turay',       '+232 78 334455', 'Kissy, Freetown',             '2025-04-01'),
-(7, 'Ibrahim Mansaray', '+232 99 667788', 'Wellington, Freetown',        '2025-04-12'),
-(8, 'Mariama Bah',      '+232 76 223344', 'Aberdeen, Freetown',          '2025-04-28')
-ON CONFLICT (id) DO NOTHING;
+        PERFORM setval('products_id_seq', (SELECT MAX(id) FROM products));
 
-SELECT setval('customers_id_seq', (SELECT MAX(id) FROM customers));
+        INSERT INTO customers (id, name, phone, address, joined_at) VALUES
+        (1, 'Mohamed Kamara',   '+232 76 123456', '12 Wilkinson Road, Freetown', '2025-01-15'),
+        (2, 'Aminata Sesay',    '+232 78 987654', '45 Congo Cross, Freetown',    '2025-02-03'),
+        (3, 'Foday Koroma',     '+232 99 112233', 'Lumley, Freetown',            '2025-02-20'),
+        (4, 'Fatmata Conteh',   '+232 77 445566', 'Murray Town, Freetown',       '2025-03-08'),
+        (5, 'Alpha Bangura',    '+232 76 778899', 'Calaba Town, Freetown',       '2025-03-15'),
+        (6, 'Hawa Turay',       '+232 78 334455', 'Kissy, Freetown',             '2025-04-01'),
+        (7, 'Ibrahim Mansaray', '+232 99 667788', 'Wellington, Freetown',        '2025-04-12'),
+        (8, 'Mariama Bah',      '+232 76 223344', 'Aberdeen, Freetown',          '2025-04-28');
+
+        PERFORM setval('customers_id_seq', (SELECT MAX(id) FROM customers));
+
+        UPDATE settings SET seeded = TRUE WHERE id = 1;
+    END IF;
+END $$;
