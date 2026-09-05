@@ -114,6 +114,8 @@ a.stat-card:hover .stat-link-hint {
 .stat-card.orange { --card-color1: #c2410c; --card-color2: #f97316; }
 .stat-card.red { --card-color1: #b91c1c; --card-color2: #ef4444; }
 .stat-card.indigo { --card-color1: #3730a3; --card-color2: #818cf8; }
+.stat-card.teal { --card-color1: #0f766e; --card-color2: #2dd4bf; }
+.stat-card.gold { --card-color1: #a16207; --card-color2: #eab308; }
 
 .stat-icon-wrap {
     width: 50px;

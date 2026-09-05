@@ -17,9 +17,17 @@ function renderDashboardStats() {
     const lowStock = _products.filter(p => p.quantity > 0 && p.quantity <= LOW_STOCK_THRESHOLD);
     const outStock = _products.filter(p => p.quantity === 0);
 
-    setEl('statTotalProductsLabel', isAdmin() ? 'Total Products (All Shops)' : 'Total Products (Your Shop)');
+    const costValue    = _products.reduce((sum, p) => sum + Number(p.cost_price)    * Number(p.quantity), 0);
+    const sellingValue = _products.reduce((sum, p) => sum + Number(p.selling_price) * Number(p.quantity), 0);
+    const scopeSuffix  = isAdmin() ? ' (All Shops)' : ' (Your Shop)';
+
+    setEl('statTotalProductsLabel', 'Total Products' + scopeSuffix);
     setEl('statTotalProducts', _products.length);
     setEl('statProductsSub',   `${_products.filter(p => p.quantity > 0).length} in stock`);
+    setEl('statCostValueLabel',    'Inventory Value (Cost)'    + scopeSuffix);
+    setEl('statSellingValueLabel', 'Inventory Value (Selling)' + scopeSuffix);
+    setEl('statCostValue',    formatCurrency(costValue));
+    setEl('statSellingValue', formatCurrency(sellingValue));
     setEl('statSalesToday',    formatCurrency(totalSalesToday));
     setEl('statSalesTodaySub', `${todaySales.length} transaction${todaySales.length !== 1 ? 's' : ''}`);
     setEl('statProfitToday',   formatCurrency(profitToday));
@@ -42,11 +50,15 @@ async function renderProductsByShop() {
             <td>${escHtml(s.shop_name)}</td>
             <td>${s.product_count}</td>
             <td>${s.total_quantity}</td>
-        </tr>`).join('') || `<tr><td colspan="3"><div class="empty-state"><span class="empty-icon">🏬</span><p>No shops found.</p></div></td></tr>`;
-        setEl('shopSummaryTotalCount', summary.grandTotal.product_count);
-        setEl('shopSummaryTotalQty',   summary.grandTotal.total_quantity);
+            <td>${formatCurrency(s.total_cost_value)}</td>
+            <td>${formatCurrency(s.total_selling_value)}</td>
+        </tr>`).join('') || `<tr><td colspan="5"><div class="empty-state"><span class="empty-icon">🏬</span><p>No shops found.</p></div></td></tr>`;
+        setEl('shopSummaryTotalCount',   summary.grandTotal.product_count);
+        setEl('shopSummaryTotalQty',     summary.grandTotal.total_quantity);
+        setEl('shopSummaryTotalCost',    formatCurrency(summary.grandTotal.total_cost_value));
+        setEl('shopSummaryTotalSelling', formatCurrency(summary.grandTotal.total_selling_value));
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="3">Failed to load: ${escHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">Failed to load: ${escHtml(err.message)}</td></tr>`;
     }
 }
 

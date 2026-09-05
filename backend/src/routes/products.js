@@ -39,16 +39,20 @@ router.get('/summary/by-shop', verifyToken, requireRole('Admin'), async (req, re
         const { rows } = await pool.query(
             `SELECT s.id AS shop_id, s.name AS shop_name,
                     COUNT(p.id)::int AS product_count,
-                    COALESCE(SUM(p.quantity), 0)::int AS total_quantity
+                    COALESCE(SUM(p.quantity), 0)::int AS total_quantity,
+                    COALESCE(SUM(p.cost_price    * p.quantity), 0)::numeric AS total_cost_value,
+                    COALESCE(SUM(p.selling_price * p.quantity), 0)::numeric AS total_selling_value
              FROM shops s
              LEFT JOIN products p ON p.shop_id = s.id
              GROUP BY s.id, s.name
              ORDER BY s.name`
         );
         const grandTotal = rows.reduce((acc, r) => ({
-            product_count:  acc.product_count  + r.product_count,
-            total_quantity: acc.total_quantity + r.total_quantity,
-        }), { product_count: 0, total_quantity: 0 });
+            product_count:       acc.product_count       + r.product_count,
+            total_quantity:      acc.total_quantity       + r.total_quantity,
+            total_cost_value:    acc.total_cost_value     + Number(r.total_cost_value),
+            total_selling_value: acc.total_selling_value  + Number(r.total_selling_value),
+        }), { product_count: 0, total_quantity: 0, total_cost_value: 0, total_selling_value: 0 });
 
         res.json({ shops: rows, grandTotal });
     } catch (err) {

@@ -121,6 +121,22 @@
                             <div class="stat-link-hint">View Inventory &rarr;</div>
                         </div>
                     </a>
+                    <a href="inventory.html" class="stat-card teal">
+                        <div class="stat-icon-wrap">💵</div>
+                        <div class="stat-body">
+                            <div class="stat-label" id="statCostValueLabel">Inventory Value (Cost)</div>
+                            <div class="stat-value currency" id="statCostValue">Le 0</div>
+                            <div class="stat-link-hint">View Inventory &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="inventory.html" class="stat-card gold">
+                        <div class="stat-icon-wrap">💎</div>
+                        <div class="stat-body">
+                            <div class="stat-label" id="statSellingValueLabel">Inventory Value (Selling)</div>
+                            <div class="stat-value currency" id="statSellingValue">Le 0</div>
+                            <div class="stat-link-hint">View Inventory &rarr;</div>
+                        </div>
+                    </a>
                     <a href="sales.html" class="stat-card green">
                         <div class="stat-icon-wrap">💰</div>
                         <div class="stat-body">
@@ -178,6 +194,8 @@
                                     <th>Shop</th>
                                     <th>Products</th>
                                     <th>Total Stock Qty</th>
+                                    <th>Value (Cost)</th>
+                                    <th>Value (Selling)</th>
                                 </tr>
                             </thead>
                             <tbody id="productsByShopBody"></tbody>
@@ -186,6 +204,8 @@
                                     <td>All Shops</td>
                                     <td id="shopSummaryTotalCount">0</td>
                                     <td id="shopSummaryTotalQty">0</td>
+                                    <td id="shopSummaryTotalCost">Le 0</td>
+                                    <td id="shopSummaryTotalSelling">Le 0</td>
                                 </tr>
                             </tfoot>
                         </table>
