@@ -1,18 +1,25 @@
 const nodemailer = require('nodemailer');
 
-function createTransporter() {
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
+// Reused across calls with connection pooling — avoids paying a fresh TLS
+// handshake with Gmail on every single password-reset request.
+let transporter = null;
+function getTransporter() {
+    if (!transporter) {
+        transporter = nodemailer.createTransport({
+            service: 'gmail',
+            pool: true,
+            maxConnections: 3,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+    }
+    return transporter;
 }
 
 async function sendPasswordReset(toEmail, userName, resetLink) {
-    const transporter = createTransporter();
-    await transporter.sendMail({
+    await getTransporter().sendMail({
         from: `"Reliavolt Supply" <${process.env.EMAIL_USER}>`,
         to: toEmail,
         subject: 'Password Reset — Reliavolt Supply',

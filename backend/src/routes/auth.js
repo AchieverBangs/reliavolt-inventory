@@ -134,9 +134,12 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
         );
 
         const base = process.env.FRONTEND_URL || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
-        await sendPasswordReset(user.email, user.name, `${base}/reset-password.html?token=${token}`);
 
+        // Respond right away — the message never depends on the email actually landing,
+        // and Gmail's SMTP round-trip can be slow. Send it in the background instead.
         res.json(ok);
+        sendPasswordReset(user.email, user.name, `${base}/reset-password.html?token=${token}`)
+            .catch(err => console.error('Forgot-password email failed to send:', err.message));
     } catch (err) {
         console.error('Forgot-password error:', err.message);
         res.status(500).json({ error: 'Failed to send reset email. Check server email config.' });
