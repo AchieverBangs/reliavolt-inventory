@@ -23,6 +23,7 @@ const allowedOrigins = [
     'http://localhost:3000',
     'null', // file:// requests have Origin: null
     'https://achieverbangs.github.io',
+    'https://app.reliavoltsupply.shop',
 ];
 
 app.use(cors({
