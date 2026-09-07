@@ -1,26 +1,32 @@
-const nodemailer = require('nodemailer');
+// Sends transactional email via Resend's HTTP API (https://resend.com).
+// Requires RESEND_API_KEY and RESEND_FROM (e.g. "Reliavolt Supply <noreply@reliavoltsupply.shop>")
+// with a verified sending domain in the Resend dashboard.
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
-// Reused across calls with connection pooling — avoids paying a fresh TLS
-// handshake with Gmail on every single password-reset request.
-let transporter = null;
-function getTransporter() {
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            service: 'gmail',
-            pool: true,
-            maxConnections: 3,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
+async function sendEmail({ to, subject, html }) {
+    const apiKey = process.env.RESEND_API_KEY;
+    const from   = process.env.RESEND_FROM;
+    if (!apiKey || !from) {
+        throw new Error('RESEND_API_KEY and RESEND_FROM must be set to send email');
     }
-    return transporter;
+
+    const res = await fetch(RESEND_API_URL, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from, to, subject, html }),
+    });
+
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Resend API error (HTTP ${res.status})`);
+    }
 }
 
 async function sendPasswordReset(toEmail, userName, resetLink) {
-    await getTransporter().sendMail({
-        from: `"Reliavolt Supply" <${process.env.EMAIL_USER}>`,
+    await sendEmail({
         to: toEmail,
         subject: 'Password Reset — Reliavolt Supply',
         html: `
