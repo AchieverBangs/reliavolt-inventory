@@ -2,6 +2,12 @@ const test    = require('node:test');
 const assert  = require('node:assert');
 const request = require('supertest');
 const app     = require('../src/app');
+const auth    = require('../src/routes/auth');
+
+test('buildResetLink uses the current frontend origin when FRONTEND_URL is absent', () => {
+    const url = auth.buildResetLink('http://localhost:5500', 'abc123');
+    assert.strictEqual(url, 'http://localhost:5500/reset-password.html?token=abc123');
+});
 
 test('GET /api/health returns ok', async () => {
     const res = await request(app).get('/api/health');

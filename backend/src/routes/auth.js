@@ -9,6 +9,24 @@ const { sendPasswordReset } = require('../services/email');
 
 const router = express.Router();
 
+function buildResetLink(frontendBase, token) {
+    const base = (frontendBase || '').replace(/\/+$/, '').trim();
+    const normalizedBase = base && !/\/(index|reset-password)\.html$/i.test(base)
+        ? base
+        : (base || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend');
+
+    return `${normalizedBase}/reset-password.html?token=${token}`;
+}
+
+function detectFrontendBase(req) {
+    const referer = req.headers.referer || '';
+    const refererBase = referer
+        ? referer.split('?')[0].replace(/\/index\.html$/i, '').replace(/\/reset-password\.html$/i, '')
+        : '';
+
+    return refererBase || req.headers.origin || process.env.FRONTEND_URL || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
+}
+
 // Brute-force protection — keyed by IP, generic message so it doesn't confirm/deny usernames
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -133,12 +151,13 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
             [user.id, token, exp]
         );
 
-        const base = process.env.FRONTEND_URL || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
+        const base = detectFrontendBase(req);
+        const resetLink = buildResetLink(base, token);
 
         // Respond right away — the message never depends on the email actually landing,
         // and Gmail's SMTP round-trip can be slow. Send it in the background instead.
         res.json(ok);
-        sendPasswordReset(user.email, user.name, `${base}/reset-password.html?token=${token}`)
+        sendPasswordReset(user.email, user.name, resetLink)
             .catch(err => console.error('Forgot-password email failed to send:', err.message));
     } catch (err) {
         console.error('Forgot-password error:', err.message);
@@ -174,3 +193,4 @@ router.post('/reset-password', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.buildResetLink = buildResetLink;

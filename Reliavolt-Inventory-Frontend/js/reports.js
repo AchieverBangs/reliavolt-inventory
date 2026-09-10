@@ -208,11 +208,24 @@ function fmtK(n) {
 }
 
 // ===== BY SHOP REPORT =====
+// Non-Admins can only ever view their own shop's report here — they should not
+// be able to browse or even see the names of shops they aren't assigned to.
 function populateShopReportSelect() {
     const select = document.getElementById('shopReportSelect');
     if (!select) return;
-    select.innerHTML = '<option value="">-- Choose a Shop --</option>' +
-        _shops.map(s => `<option value="${s.id}">${escHtml(s.name)} — ${s.status}</option>`).join('');
+
+    if (isAdmin()) {
+        select.innerHTML = '<option value="">-- Choose a Shop --</option>' +
+            _shops.map(s => `<option value="${s.id}">${escHtml(s.name)} — ${s.status}</option>`).join('');
+        select.disabled = false;
+    } else {
+        const shopId = getCurrentUserShopId();
+        const shop   = _shops.find(s => s.id === shopId);
+        select.innerHTML = shop
+            ? `<option value="${shop.id}">${escHtml(shop.name)}</option>`
+            : '<option value="">No shop assigned</option>';
+        select.disabled = true;
+    }
 }
 
 function renderShopReport(shopId) {
