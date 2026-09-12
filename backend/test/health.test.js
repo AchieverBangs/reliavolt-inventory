@@ -9,6 +9,28 @@ test('buildResetLink uses the current frontend origin when FRONTEND_URL is absen
     assert.strictEqual(url, 'http://localhost:5500/reset-password.html?token=abc123');
 });
 
+test('detectFrontendBase ignores cross-origin Referer/Origin headers and uses FRONTEND_URL', () => {
+    const originalEnv = process.env.FRONTEND_URL;
+    process.env.FRONTEND_URL = 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
+
+    // Simulates the real bug: a cross-origin browser request only ever sends the
+    // bare origin in Referer/Origin (path stripped), never the app's subfolder.
+    const fakeReq = {
+        headers: {
+            referer: 'https://achieverbangs.github.io/', // path already stripped by the browser
+            origin:  'https://achieverbangs.github.io',
+        },
+    };
+
+    const base = auth.detectFrontendBase(fakeReq);
+    const link = auth.buildResetLink(base, 'abc123');
+
+    assert.strictEqual(base, 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend');
+    assert.strictEqual(link, 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend/reset-password.html?token=abc123');
+
+    process.env.FRONTEND_URL = originalEnv;
+});
+
 test('GET /api/health returns ok', async () => {
     const res = await request(app).get('/api/health');
     assert.strictEqual(res.status, 200);

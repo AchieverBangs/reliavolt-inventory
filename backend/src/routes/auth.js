@@ -18,13 +18,15 @@ function buildResetLink(frontendBase, token) {
     return `${normalizedBase}/reset-password.html?token=${token}`;
 }
 
+// NOTE: this used to fall back to the request's Referer/Origin headers when
+// FRONTEND_URL wasn't set. That's unreliable here on purpose: the frontend
+// (GitHub Pages) and backend (Railway) are different origins, and browsers'
+// default cross-origin referrer policy strips the path from those headers,
+// keeping only the bare domain — which silently produced a reset link
+// missing the /Reliavolt-Inventory-Frontend folder and 404'd. FRONTEND_URL
+// is the only source of truth now.
 function detectFrontendBase(req) {
-    const referer = req.headers.referer || '';
-    const refererBase = referer
-        ? referer.split('?')[0].replace(/\/index\.html$/i, '').replace(/\/reset-password\.html$/i, '')
-        : '';
-
-    return refererBase || req.headers.origin || process.env.FRONTEND_URL || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
+    return process.env.FRONTEND_URL || 'https://achieverbangs.github.io/reliavolt-inventory/Reliavolt-Inventory-Frontend';
 }
 
 // Brute-force protection — keyed by IP, generic message so it doesn't confirm/deny usernames
@@ -194,3 +196,4 @@ router.post('/reset-password', async (req, res) => {
 
 module.exports = router;
 module.exports.buildResetLink = buildResetLink;
+module.exports.detectFrontendBase = detectFrontendBase;
