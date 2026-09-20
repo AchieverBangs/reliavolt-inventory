@@ -188,7 +188,12 @@ async function saveProduct() {
             const updated = await api.put(`/api/products/${editingProductId}`, payload);
             const idx = _products.findIndex(p => p.id === editingProductId);
             if (idx !== -1) _products[idx] = updated;
-            showToast(`${name} updated successfully.`, 'success');
+            showToast(
+                updated.salesBackfilled
+                    ? `${name} updated — commission recalculated on ${updated.salesBackfilled} past sale(s).`
+                    : `${name} updated successfully.`,
+                'success'
+            );
         } else {
             const created = await api.post('/api/products', payload);
             _products.push(created);

@@ -244,19 +244,37 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission, commission_user_id } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
 
+    const client = await pool.connect();
     try {
-        const { rows } = await pool.query(
+        await client.query('BEGIN');
+
+        const { rows } = await client.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
              selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9, commission_user_id=$10 WHERE id=$11 RETURNING *`,
             [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
         );
-        if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
-        logActivity(req, 'update', 'product', rows[0].id, `Updated product "${name}"`);
-        res.json(rows[0]);
+        if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
+
+        // Backfill: apply the (possibly new) commission rate/owner to this product's
+        // existing sales too, not just future ones — so a rate/owner added after the
+        // fact still credits what was actually sold. Falls back to each sale's own
+        // processing staff when no owner is designated, same rule as a fresh sale.
+        const { rowCount: backfilled } = await client.query(
+            `UPDATE sales SET commission = $1 * qty, commission_user_id = COALESCE($2, user_id) WHERE product_id = $3`,
+            [commission || 0, commission_user_id || null, req.params.id]
+        );
+
+        await client.query('COMMIT');
+        logActivity(req, 'update', 'product', rows[0].id,
+            `Updated product "${name}"${backfilled ? ` — recalculated commission on ${backfilled} past sale(s)` : ''}`);
+        res.json({ ...rows[0], salesBackfilled: backfilled });
     } catch (err) {
+        await client.query('ROLLBACK');
         if (err.code === '23503') return res.status(400).json({ error: 'shop_id or commission owner does not exist' });
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 
