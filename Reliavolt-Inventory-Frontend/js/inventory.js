@@ -190,7 +190,7 @@ async function saveProduct() {
             if (idx !== -1) _products[idx] = updated;
             showToast(
                 updated.salesBackfilled
-                    ? `${name} updated — commission recalculated on ${updated.salesBackfilled} past sale(s).`
+                    ? `${name} updated — cost/profit/commission recalculated on ${updated.salesBackfilled} past sale(s).`
                     : `${name} updated successfully.`,
                 'success'
             );

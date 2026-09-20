@@ -255,18 +255,27 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         );
         if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
 
-        // Backfill: apply the (possibly new) commission rate/owner to this product's
-        // existing sales too, not just future ones — so a rate/owner added after the
-        // fact still credits what was actually sold. Falls back to each sale's own
-        // processing staff when no owner is designated, same rule as a fresh sale.
+        // Backfill: apply the (possibly new) cost price and commission rate/owner to
+        // this product's existing sales too, not just future ones — so a cost price
+        // or commission added after the fact still corrects what was actually sold.
+        // unit_price (what the customer was actually charged) is never touched, only
+        // the figures that depend on cost/commission. Commission falls back to each
+        // sale's own processing staff when no owner is designated, same rule as a
+        // fresh sale.
+        const newCostPrice = cost_price || 0;
         const { rowCount: backfilled } = await client.query(
-            `UPDATE sales SET commission = $1 * qty, commission_user_id = COALESCE($2, user_id) WHERE product_id = $3`,
-            [commission || 0, commission_user_id || null, req.params.id]
+            `UPDATE sales SET
+                unit_cost = $1,
+                profit = (unit_price - $1) * qty,
+                commission = $2 * qty,
+                commission_user_id = COALESCE($3, user_id)
+             WHERE product_id = $4`,
+            [newCostPrice, commission || 0, commission_user_id || null, req.params.id]
         );
 
         await client.query('COMMIT');
         logActivity(req, 'update', 'product', rows[0].id,
-            `Updated product "${name}"${backfilled ? ` — recalculated commission on ${backfilled} past sale(s)` : ''}`);
+            `Updated product "${name}"${backfilled ? ` — recalculated cost/profit/commission on ${backfilled} past sale(s)` : ''}`);
         res.json({ ...rows[0], salesBackfilled: backfilled });
     } catch (err) {
         await client.query('ROLLBACK');
