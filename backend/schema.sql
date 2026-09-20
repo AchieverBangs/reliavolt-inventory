@@ -61,6 +61,11 @@ CREATE INDEX IF NOT EXISTS idx_products_shop_id ON products(shop_id);
 -- Commission — flat amount paid per unit sold, set on the product itself
 ALTER TABLE products ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0;
 
+-- Commission owner — when set, this staff member always earns the commission on
+-- this product, no matter who actually processes the sale. When unset (NULL),
+-- commission falls back to whoever rang up the sale (the previous behavior).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
 -- Customers
 CREATE TABLE IF NOT EXISTS customers (
     id         SERIAL PRIMARY KEY,
@@ -94,12 +99,16 @@ CREATE TABLE IF NOT EXISTS sales (
     sale_date      TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
--- Attribute each sale to whoever rang it up (needed for commission) and record
--- the commission earned at sale time (captured then, so later changes to a
--- product's commission rate don't rewrite history).
+-- Attribute each sale to whoever rang it up (audit trail) and record the
+-- commission earned at sale time (captured then, so later changes to a
+-- product's commission rate/owner don't rewrite history). commission_user_id
+-- is who actually EARNS the commission — the product's designated owner if
+-- it has one, otherwise the same as user_id.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
+CREATE INDEX IF NOT EXISTS idx_sales_commission_user_id ON sales(commission_user_id);
 
 -- System-wide activity log (every create/update/delete, for Admin review)
 CREATE TABLE IF NOT EXISTS activity_log (

@@ -10,7 +10,10 @@ const router = express.Router();
 const STOCK_ROLES = ['Admin', 'Manager', 'Stock Manager'];
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const PRODUCT_SELECT = `SELECT p.*, s.name AS shop_name FROM products p LEFT JOIN shops s ON s.id = p.shop_id`;
+const PRODUCT_SELECT = `SELECT p.*, s.name AS shop_name, u.name AS commission_owner_name
+    FROM products p
+    LEFT JOIN shops s ON s.id = p.shop_id
+    LEFT JOIN users u ON u.id = p.commission_user_id`;
 
 // Cost price (and anything derived from it) is Admin-only — strip it for everyone else.
 function hideCost(rowOrRows, role) {
@@ -94,6 +97,7 @@ router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
     const { name, category, brand, selling_price, quantity, icon, commission } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
     const cost_price = req.user.role === 'Admin' ? (req.body.cost_price || 0) : 0;
+    const commission_user_id = req.user.role === 'Admin' ? (req.body.commission_user_id || null) : null;
 
     // Non-admins can only add to their own shop; Admins must specify one
     let shop_id;
@@ -107,14 +111,14 @@ router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
 
     try {
         const { rows } = await pool.query(
-            `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [name, category || null, brand || null, cost_price, selling_price || 0, quantity || 0, icon || '📦', shop_id, commission || 0]
+            `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission, commission_user_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [name, category || null, brand || null, cost_price, selling_price || 0, quantity || 0, icon || '📦', shop_id, commission || 0, commission_user_id]
         );
         logActivity(req, 'create', 'product', rows[0].id, `Added product "${name}"`);
         res.status(201).json(hideCost(rows[0], req.user.role));
     } catch (err) {
-        if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
+        if (err.code === '23503') return res.status(400).json({ error: 'shop_id or commission owner does not exist' });
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -237,20 +241,20 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
 
 // PUT /api/products/:id  (Admin only)
 router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
-    const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission } = req.body;
+    const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission, commission_user_id } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
 
     try {
         const { rows } = await pool.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
-             selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9 WHERE id=$10 RETURNING *`,
-            [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, req.params.id]
+             selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9, commission_user_id=$10 WHERE id=$11 RETURNING *`,
+            [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
         logActivity(req, 'update', 'product', rows[0].id, `Updated product "${name}"`);
         res.json(rows[0]);
     } catch (err) {
-        if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
+        if (err.code === '23503') return res.status(400).json({ error: 'shop_id or commission owner does not exist' });
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }

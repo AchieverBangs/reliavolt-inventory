@@ -1,6 +1,7 @@
 // ===== STATE =====
 let _products = [];
 let _shops = [];
+let _staff = [];
 let editingProductId = null;
 let currentFilter = 'all';
 let searchQuery = '';
@@ -74,7 +75,7 @@ function renderProductTable() {
             ${shopCell}
             ${costCell}
             <td class="price-cell">${formatCurrency(p.selling_price)}</td>
-            <td class="price-cell">${formatCurrency(p.commission || 0)}</td>
+            <td class="price-cell">${formatCurrency(p.commission || 0)}${p.commission_owner_name ? `<div style="font-size:0.72rem;color:var(--text-light);">→ ${escHtml(p.commission_owner_name)}</div>` : ''}</td>
             ${profitCell}
             <td class="qty-cell">${p.quantity}</td>
             <td><span class="badge ${status.cls}">${status.label}</span></td>
@@ -101,6 +102,14 @@ function populateProductShopSelect(selectId = 'productShop') {
         active.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 }
 
+function populateCommissionOwnerSelect() {
+    const select = document.getElementById('productCommissionOwner');
+    if (!select) return;
+    const eligible = _staff.filter(u => ['Admin', 'Manager', 'Cashier'].includes(u.role) && u.status === 'Active');
+    select.innerHTML = '<option value="">-- Whoever sells it (default) --</option>' +
+        eligible.map(u => `<option value="${u.id}">${escHtml(u.name)} (${escHtml(u.role)})</option>`).join('');
+}
+
 // ===== ADD / EDIT =====
 function openAddProduct() {
     editingProductId = null;
@@ -108,7 +117,10 @@ function openAddProduct() {
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productIcon').value = '📦';
     document.getElementById('productCommission').value = 0;
-    if (isAdmin()) populateProductShopSelect();
+    if (isAdmin()) {
+        populateProductShopSelect();
+        populateCommissionOwnerSelect();
+    }
     clearPricePreview();
     openModal('productModal');
 }
@@ -131,6 +143,8 @@ function openEditProduct(id) {
     if (isAdmin()) {
         populateProductShopSelect();
         document.getElementById('productShop').value = product.shop_id || '';
+        populateCommissionOwnerSelect();
+        document.getElementById('productCommissionOwner').value = product.commission_user_id || '';
     }
 
     updatePricePreview();
@@ -164,6 +178,9 @@ async function saveProduct() {
         const shopId = document.getElementById('productShop')?.value;
         if (!shopId) { showToast('Please select a shop.', 'error'); return; }
         payload.shop_id = parseInt(shopId);
+
+        const ownerId = document.getElementById('productCommissionOwner')?.value;
+        payload.commission_user_id = ownerId ? parseInt(ownerId) : null;
     }
 
     try {
@@ -301,6 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             api.get('/api/products'),
             api.get('/api/shops'),
         ]);
+        if (isAdmin()) _staff = await api.get('/api/users').catch(() => []);
     } catch (err) {
         showToast('Failed to load inventory: ' + err.message, 'error');
         _products = []; _shops = [];

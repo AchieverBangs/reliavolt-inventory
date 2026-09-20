@@ -54,7 +54,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                 COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
                 COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
                 COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
-             FROM sales WHERE user_id = $1`,
+             FROM sales WHERE commission_user_id = $1`,
             [req.user.id]
         );
 
@@ -68,7 +68,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                     COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
                     COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
                  FROM users u
-                 LEFT JOIN sales s ON s.user_id = u.id
+                 LEFT JOIN sales s ON s.commission_user_id = u.id
                  WHERE u.role = ANY($1)
                  GROUP BY u.id, u.name, u.username, u.role
                  ORDER BY u.name`,
@@ -130,6 +130,9 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
         const total      = unitPrice * qty;
         const profit     = (unitPrice - unitCost) * qty;
         const commission = parseFloat(product.commission || 0) * qty;
+        // A product with a designated commission owner always credits them; otherwise it
+        // goes to whoever actually rang up this sale.
+        const commissionUserId = product.commission_user_id || req.user.id;
 
         // Resolve/auto-create the customer — this is the only place a customer record is ever created
         let resolvedCustomerId = null;
@@ -165,10 +168,10 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
         const { rows } = await client.query(
             `INSERT INTO sales
              (receipt_no, product_id, product_name, customer_id, customer_name, qty,
-              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, sale_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW()) RETURNING *`,
+              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING *`,
             [receiptNo, product_id, product.name, resolvedCustomerId, cName,
-             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id]
+             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId]
         );
 
         await client.query('COMMIT');
