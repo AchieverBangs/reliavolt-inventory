@@ -1,6 +1,7 @@
 const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ router.put('/', verifyToken, requireRole('Admin'), async (req, res) => {
              RETURNING *`,
             [company_name || 'Reliavolt Supply', currency || 'Le', receipt_footer || '', theme || 'light']
         );
+        logActivity(req, 'update', 'settings', 1, 'Updated app settings');
         res.json(rows[0]);
     } catch (err) {
         console.error(err);

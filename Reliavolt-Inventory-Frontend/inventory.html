@@ -36,10 +36,6 @@
                 <span class="nav-icon">🛒</span>
                 <span class="nav-label">Sales</span>
             </a>
-            <a href="customers.html" class="nav-item">
-                <span class="nav-icon">👥</span>
-                <span class="nav-label">Customers</span>
-            </a>
             <a href="delivery.html" class="nav-item">
                 <span class="nav-icon">🚚</span>
                 <span class="nav-label">Delivery</span>
@@ -51,6 +47,10 @@
             <a href="shops.html" class="nav-item nav-admin">
                 <span class="nav-icon">🏪</span>
                 <span class="nav-label">Shops</span>
+            </a>
+            <a href="system-logs.html" class="nav-item nav-admin">
+                <span class="nav-icon">🗂️</span>
+                <span class="nav-label">System Logs</span>
             </a>
             <a href="reports.html" class="nav-item">
                 <span class="nav-icon">📈</span>
@@ -140,6 +140,7 @@
                                 <th class="nav-admin hidden" id="shopColHeader">Shop</th>
                                 <th class="nav-admin hidden" id="costColHeader">Cost Price</th>
                                 <th>Selling Price</th>
+                                <th>Commission</th>
                                 <th class="nav-admin hidden" id="profitColHeader">Profit/Unit</th>
                                 <th>Qty</th>
                                 <th>Status</th>
@@ -222,9 +223,15 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="productQuantity">Quantity in Stock *</label>
-                    <input type="number" class="form-control" id="productQuantity" placeholder="0" min="0" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="productQuantity">Quantity in Stock *</label>
+                        <input type="number" class="form-control" id="productQuantity" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="productCommission">Commission per Unit (Le)</label>
+                        <input type="number" class="form-control" id="productCommission" placeholder="0" min="0" value="0">
+                    </div>
                 </div>
 
                 <div class="price-preview nav-admin hidden" id="pricePreviewBox">
@@ -260,7 +267,7 @@
         <div class="modal-body">
             <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">
                 Upload an Excel (.xlsx) or CSV file with columns: <strong>Name</strong>, Category, Brand,
-                <span class="nav-admin hidden">Cost Price, </span>Selling Price, Quantity, Icon.
+                <span class="nav-admin hidden">Cost Price, </span>Selling Price, Quantity, Commission, Icon.
                 Only <strong>Name</strong> and <strong>Selling Price</strong> are required.
             </p>
             <div class="form-group nav-admin hidden" id="importShopGroup">

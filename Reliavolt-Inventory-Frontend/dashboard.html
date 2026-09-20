@@ -36,10 +36,6 @@
                 <span class="nav-icon">🛒</span>
                 <span class="nav-label">Sales</span>
             </a>
-            <a href="customers.html" class="nav-item">
-                <span class="nav-icon">👥</span>
-                <span class="nav-label">Customers</span>
-            </a>
             <a href="delivery.html" class="nav-item">
                 <span class="nav-icon">🚚</span>
                 <span class="nav-label">Delivery</span>
@@ -51,6 +47,10 @@
             <a href="shops.html" class="nav-item nav-admin">
                 <span class="nav-icon">🏪</span>
                 <span class="nav-label">Shops</span>
+            </a>
+            <a href="system-logs.html" class="nav-item nav-admin">
+                <span class="nav-icon">🗂️</span>
+                <span class="nav-label">System Logs</span>
             </a>
             <a href="reports.html" class="nav-item">
                 <span class="nav-icon">📈</span>
@@ -99,10 +99,6 @@
                     <a href="inventory.html" class="quick-action-btn">
                         <span class="qa-icon">➕</span>
                         <span>Add Product</span>
-                    </a>
-                    <a href="customers.html" class="quick-action-btn">
-                        <span class="qa-icon">👤</span>
-                        <span>View Customers</span>
                     </a>
                     <a href="reports.html" class="quick-action-btn">
                         <span class="qa-icon">📄</span>
@@ -208,6 +204,65 @@
                                     <td id="shopSummaryTotalSelling">Le 0</td>
                                 </tr>
                             </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Your Commission (Admin/Manager/Cashier only) -->
+                <div class="card hidden" id="commissionCard" style="margin-bottom:1.5rem;">
+                    <div class="chart-header">
+                        <span class="chart-title">Your Commission</span>
+                    </div>
+                    <div class="stats-grid" style="margin-top:0;">
+                        <div class="stat-card teal" style="cursor:default;">
+                            <div class="stat-icon-wrap">💵</div>
+                            <div class="stat-body">
+                                <div class="stat-label">Today</div>
+                                <div class="stat-value currency" id="commissionToday">Le 0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card blue" style="cursor:default;">
+                            <div class="stat-icon-wrap">📅</div>
+                            <div class="stat-body">
+                                <div class="stat-label">This Week</div>
+                                <div class="stat-value currency" id="commissionWeek">Le 0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card purple" style="cursor:default;">
+                            <div class="stat-icon-wrap">🗓️</div>
+                            <div class="stat-body">
+                                <div class="stat-label">This Month</div>
+                                <div class="stat-value currency" id="commissionMonth">Le 0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card gold" style="cursor:default;">
+                            <div class="stat-icon-wrap">🏆</div>
+                            <div class="stat-body">
+                                <div class="stat-label">This Year</div>
+                                <div class="stat-value currency" id="commissionYear">Le 0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Commission by Staff (Admin only) -->
+                <div class="card nav-admin hidden" id="commissionByStaffCard" style="margin-bottom:1.5rem;">
+                    <div class="chart-header">
+                        <span class="chart-title">Commission by Staff</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="product-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff</th>
+                                    <th>Role</th>
+                                    <th>Today</th>
+                                    <th>This Week</th>
+                                    <th>This Month</th>
+                                    <th>This Year</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commissionByStaffBody"></tbody>
                         </table>
                     </div>
                 </div>

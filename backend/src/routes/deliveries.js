@@ -1,6 +1,7 @@
 const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 const MGMT_ROLES = ['Admin', 'Manager'];
@@ -114,6 +115,7 @@ router.post('/', verifyToken, requireRole(...MGMT_ROLES), async (req, res) => {
              WHERE d.id = $1 GROUP BY d.id`,
             [deliveryId]
         );
+        logActivity(req, 'create', 'delivery', deliveryId, `Created delivery ${deliveryNo} to "${to_name}"`);
         res.status(201).json(full[0]);
     } catch (err) {
         await client.query('ROLLBACK');
@@ -144,6 +146,7 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
             'UPDATE deliveries SET status=$1 WHERE id=$2 RETURNING *',
             [status, req.params.id]
         );
+        logActivity(req, 'update', 'delivery', req.params.id, `Delivery ${d.delivery_no} status → ${status}`);
         res.json(updated[0]);
     } catch (err) {
         console.error(err);
@@ -154,8 +157,10 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 // DELETE /api/deliveries/:id  (Admin only)
 router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
+        const { rows: existing } = await pool.query('SELECT delivery_no FROM deliveries WHERE id = $1', [req.params.id]);
         const { rowCount } = await pool.query('DELETE FROM deliveries WHERE id = $1', [req.params.id]);
         if (!rowCount) return res.status(404).json({ error: 'Delivery not found' });
+        logActivity(req, 'delete', 'delivery', req.params.id, `Deleted delivery ${existing[0]?.delivery_no || req.params.id}`);
         res.json({ message: 'Delivery deleted' });
     } catch (err) {
         console.error(err);

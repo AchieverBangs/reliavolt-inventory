@@ -36,10 +36,6 @@
                 <span class="nav-icon">🛒</span>
                 <span class="nav-label">Sales</span>
             </a>
-            <a href="customers.html" class="nav-item">
-                <span class="nav-icon">👥</span>
-                <span class="nav-label">Customers</span>
-            </a>
             <a href="delivery.html" class="nav-item">
                 <span class="nav-icon">🚚</span>
                 <span class="nav-label">Delivery</span>
@@ -51,6 +47,10 @@
             <a href="shops.html" class="nav-item nav-admin">
                 <span class="nav-icon">🏪</span>
                 <span class="nav-label">Shops</span>
+            </a>
+            <a href="system-logs.html" class="nav-item nav-admin">
+                <span class="nav-icon">🗂️</span>
+                <span class="nav-label">System Logs</span>
             </a>
             <a href="reports.html" class="nav-item active">
                 <span class="nav-icon">📈</span>
@@ -108,6 +108,26 @@
                 <div class="rpt-section-header">
                     <h2 class="rpt-section-title" id="salesSectionTitle">Today's Sales</h2>
                     <button class="btn btn-secondary btn-sm no-print" id="printReportBtn">🖨️ Print</button>
+                </div>
+
+                <!-- Filters -->
+                <div class="page-toolbar no-print" style="margin-bottom:1rem;">
+                    <div class="toolbar-group">
+                        <label class="form-label" style="margin:0;">From</label>
+                        <input type="date" class="form-control" id="filterFromDate" style="max-width:150px;">
+                        <label class="form-label" style="margin:0;">To</label>
+                        <input type="date" class="form-control" id="filterToDate" style="max-width:150px;">
+                        <select class="filter-select" id="filterCategory">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select class="filter-select" id="filterPaymentMethod">
+                            <option value="">All Payment Methods</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Mobile Money">Mobile Money</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" id="clearFiltersBtn">Clear</button>
+                    </div>
                 </div>
 
                 <div class="rpt-stats-grid">

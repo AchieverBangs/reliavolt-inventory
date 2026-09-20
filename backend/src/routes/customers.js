@@ -1,6 +1,7 @@
 const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 
@@ -70,6 +71,7 @@ router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), asyn
             'UPDATE customers SET name=$1, phone=$2, address=$3, shop_id=$4 WHERE id=$5 RETURNING *',
             [name, phone || null, address || null, shop_id, req.params.id]
         );
+        logActivity(req, 'update', 'customer', rows[0].id, `Updated customer "${name}"`);
         res.json(rows[0]);
     } catch (err) {
         if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
@@ -81,7 +83,7 @@ router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), asyn
 // DELETE /api/customers/:id
 router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
     try {
-        const { rows: existingRows } = await pool.query('SELECT shop_id FROM customers WHERE id = $1', [req.params.id]);
+        const { rows: existingRows } = await pool.query('SELECT shop_id, name FROM customers WHERE id = $1', [req.params.id]);
         if (!existingRows[0]) return res.status(404).json({ error: 'Customer not found' });
 
         if (req.user.role !== 'Admin' && existingRows[0].shop_id !== req.user.shopId) {
@@ -89,6 +91,7 @@ router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, 
         }
 
         await pool.query('DELETE FROM customers WHERE id = $1', [req.params.id]);
+        logActivity(req, 'delete', 'customer', req.params.id, `Deleted customer "${existingRows[0].name}"`);
         res.json({ message: 'Customer deleted' });
     } catch (err) {
         console.error(err);

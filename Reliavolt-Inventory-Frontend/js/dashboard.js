@@ -63,6 +63,44 @@ async function renderProductsByShop() {
     }
 }
 
+// ===== COMMISSION (Admin/Manager/Cashier) =====
+const ROLE_BADGE_CLASS = {
+    Admin: 'role-admin', Manager: 'role-manager', Cashier: 'role-cashier',
+    'Stock Manager': 'role-stock', 'Delivery Person': 'role-driver',
+};
+
+async function renderCommission() {
+    const role = getCurrentUserRole();
+    if (!['Admin', 'Manager', 'Cashier'].includes(role)) return;
+
+    const card = document.getElementById('commissionCard');
+    if (card) card.classList.remove('hidden');
+
+    try {
+        const summary = await api.get('/api/sales/commission/summary');
+        setEl('commissionToday', formatCurrency(summary.mine.today));
+        setEl('commissionWeek',  formatCurrency(summary.mine.week));
+        setEl('commissionMonth', formatCurrency(summary.mine.month));
+        setEl('commissionYear',  formatCurrency(summary.mine.year));
+
+        if (summary.byStaff) {
+            const tbody = document.getElementById('commissionByStaffBody');
+            if (tbody) {
+                tbody.innerHTML = summary.byStaff.map(s => `<tr>
+                    <td><strong>${escHtml(s.name)}</strong> <span style="color:var(--text-light);font-size:0.8rem;">@${escHtml(s.username)}</span></td>
+                    <td><span class="role-badge ${ROLE_BADGE_CLASS[s.role] || 'role-cashier'}">${escHtml(s.role)}</span></td>
+                    <td>${formatCurrency(s.today)}</td>
+                    <td>${formatCurrency(s.week)}</td>
+                    <td>${formatCurrency(s.month)}</td>
+                    <td>${formatCurrency(s.year)}</td>
+                </tr>`).join('') || `<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
+            }
+        }
+    } catch (err) {
+        showToast('Failed to load commission: ' + err.message, 'error');
+    }
+}
+
 // ===== RECENT SALES =====
 function renderRecentSalesList() {
     const container = document.getElementById('recentSalesList');
@@ -338,6 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderRecentSalesList();
         renderLowStockTable();
         renderProductsByShop();
+        renderCommission();
         setTimeout(renderSalesChart, 50);
         window.addEventListener('resize', () => setTimeout(renderSalesChart, 50));
     }

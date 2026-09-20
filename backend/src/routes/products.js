@@ -4,6 +4,7 @@ const ExcelJS  = require('exceljs');
 const { Readable } = require('stream');
 const pool     = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 const STOCK_ROLES = ['Admin', 'Manager', 'Stock Manager'];
@@ -90,7 +91,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // POST /api/products  (Admin, Manager, Stock Manager can add; cost_price is ignored unless Admin)
 router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
-    const { name, category, brand, selling_price, quantity, icon } = req.body;
+    const { name, category, brand, selling_price, quantity, icon, commission } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
     const cost_price = req.user.role === 'Admin' ? (req.body.cost_price || 0) : 0;
 
@@ -106,10 +107,11 @@ router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
 
     try {
         const { rows } = await pool.query(
-            `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [name, category || null, brand || null, cost_price, selling_price || 0, quantity || 0, icon || '📦', shop_id]
+            `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [name, category || null, brand || null, cost_price, selling_price || 0, quantity || 0, icon || '📦', shop_id, commission || 0]
         );
+        logActivity(req, 'create', 'product', rows[0].id, `Added product "${name}"`);
         res.status(201).json(hideCost(rows[0], req.user.role));
     } catch (err) {
         if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
@@ -199,8 +201,11 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
         const costRaw   = pick(row, ['cost price', 'costprice', 'cost']);
         const costParsed = parseFloat(costRaw);
         const cost_price = canSeeCost && !isNaN(costParsed) ? costParsed : 0;
+        const commissionRaw = pick(row, ['commission', 'commission per unit']);
+        const commissionParsed = parseFloat(commissionRaw);
+        const commission = !isNaN(commissionParsed) ? commissionParsed : 0;
 
-        toImport.push({ name, category, brand, cost_price, selling_price, quantity, icon });
+        toImport.push({ name, category, brand, cost_price, selling_price, quantity, icon, commission });
     });
 
     if (!toImport.length) {
@@ -212,12 +217,13 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
         await client.query('BEGIN');
         for (const p of toImport) {
             await client.query(
-                `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-                [p.name, p.category, p.brand, p.cost_price, p.selling_price, p.quantity, p.icon, shop_id]
+                `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                [p.name, p.category, p.brand, p.cost_price, p.selling_price, p.quantity, p.icon, shop_id, p.commission]
             );
         }
         await client.query('COMMIT');
+        logActivity(req, 'create', 'product', null, `Imported ${toImport.length} product(s) from file`);
         res.status(201).json({ imported: toImport.length, skipped, total: rows.length });
     } catch (err) {
         await client.query('ROLLBACK');
@@ -231,16 +237,17 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
 
 // PUT /api/products/:id  (Admin only)
 router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
-    const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id } = req.body;
+    const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
 
     try {
         const { rows } = await pool.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
-             selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id) WHERE id=$9 RETURNING *`,
-            [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, req.params.id]
+             selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9 WHERE id=$10 RETURNING *`,
+            [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, req.params.id]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
+        logActivity(req, 'update', 'product', rows[0].id, `Updated product "${name}"`);
         res.json(rows[0]);
     } catch (err) {
         if (err.code === '23503') return res.status(400).json({ error: 'shop_id does not exist' });
@@ -252,8 +259,10 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
 // DELETE /api/products/:id  (Admin only)
 router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
+        const { rows: existing } = await pool.query('SELECT name FROM products WHERE id = $1', [req.params.id]);
         const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
         if (!rowCount) return res.status(404).json({ error: 'Product not found' });
+        logActivity(req, 'delete', 'product', req.params.id, `Deleted product "${existing[0]?.name || req.params.id}"`);
         res.json({ message: 'Product deleted' });
     } catch (err) {
         console.error(err);

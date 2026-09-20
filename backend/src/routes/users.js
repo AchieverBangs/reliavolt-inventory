@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt  = require('bcryptjs');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 
@@ -51,6 +52,7 @@ router.post('/', verifyToken, requireRole('Admin'), async (req, res) => {
              RETURNING id, name, username, email, role, shop_id, status, created_at`,
             [name, username.toLowerCase().trim(), hash, email || null, role || 'Cashier', shop_id || null, status || 'Active']
         );
+        logActivity(req, 'create', 'user', rows[0].id, `Created user "${rows[0].username}" (${rows[0].role})`);
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
@@ -79,6 +81,7 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
 
         const { rows } = await pool.query(query, values);
         if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+        logActivity(req, 'update', 'user', rows[0].id, `Updated user "${rows[0].username}"${password ? ' (password changed)' : ''}`);
         res.json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
@@ -93,8 +96,10 @@ router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         return res.status(400).json({ error: 'You cannot delete your own account' });
     }
     try {
+        const { rows: existing } = await pool.query('SELECT username FROM users WHERE id = $1', [req.params.id]);
         const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         if (!rowCount) return res.status(404).json({ error: 'User not found' });
+        logActivity(req, 'delete', 'user', req.params.id, `Deleted user "${existing[0]?.username || req.params.id}"`);
         res.json({ message: 'User deleted' });
     } catch (err) {
         console.error(err);

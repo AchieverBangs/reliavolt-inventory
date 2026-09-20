@@ -3,13 +3,42 @@ let _sales    = [];
 let _products = [];
 let _shops    = [];
 let _users    = [];
+let currentPeriod = 'daily';
+
+// Extra filters — layered on top of the Daily/Weekly/Monthly tab, and a set
+// date range overrides the tab's own date window entirely.
+let filterFrom = '', filterTo = '', filterCategory = '', filterPaymentMethod = '';
 
 // ===== FILTER HELPERS =====
+function applyExtraFilters(sales) {
+    let result = sales;
+    if (filterFrom) result = result.filter(s => (s.sale_date || '').slice(0, 10) >= filterFrom);
+    if (filterTo)   result = result.filter(s => (s.sale_date || '').slice(0, 10) <= filterTo);
+    if (filterCategory) {
+        const idsInCategory = new Set(_products.filter(p => p.category === filterCategory).map(p => p.id));
+        result = result.filter(s => idsInCategory.has(s.product_id));
+    }
+    if (filterPaymentMethod) result = result.filter(s => s.payment_method === filterPaymentMethod);
+    return result;
+}
+
 function getSalesByPeriod(period) {
-    if (period === 'daily')   return _sales.filter(s => isSameDay(s.sale_date, todayStr()));
-    if (period === 'weekly')  return _sales.filter(s => isSameWeek(s.sale_date));
-    if (period === 'monthly') return _sales.filter(s => isSameMonth(s.sale_date));
-    return _sales;
+    let base;
+    if (filterFrom || filterTo) {
+        base = _sales; // custom date range overrides the Daily/Weekly/Monthly window
+    } else if (period === 'daily')   base = _sales.filter(s => isSameDay(s.sale_date, todayStr()));
+    else if (period === 'weekly')  base = _sales.filter(s => isSameWeek(s.sale_date));
+    else if (period === 'monthly') base = _sales.filter(s => isSameMonth(s.sale_date));
+    else base = _sales;
+    return applyExtraFilters(base);
+}
+
+function populateReportCategoryFilter() {
+    const select = document.getElementById('filterCategory');
+    if (!select) return;
+    const categories = [...new Set(_products.map(p => p.category).filter(Boolean))].sort();
+    select.innerHTML = '<option value="">All Categories</option>' +
+        categories.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
 }
 
 function calcStats(sales) {
@@ -27,7 +56,7 @@ function calcStats(sales) {
 // ===== RENDER SALES SUMMARY =====
 function renderSalesSummary(period) {
     const labels = { daily: "Today's Sales", weekly: "This Week's Sales", monthly: "This Month's Sales" };
-    setEl('salesSectionTitle', labels[period] || "Sales");
+    setEl('salesSectionTitle', (filterFrom || filterTo) ? 'Filtered Sales' : (labels[period] || 'Sales'));
 
     const stats = calcStats(getSalesByPeriod(period));
     setEl('sumRevenue', formatCurrency(stats.revenue));
@@ -312,6 +341,7 @@ function renderShopReport(shopId) {
 // ===== TAB SWITCHING =====
 function switchReportTab(period) {
     if (period === 'profit' && !isAdmin()) period = 'daily'; // profit tab is Admin-only; don't let a #profit URL bypass that
+    currentPeriod = period;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 
@@ -357,6 +387,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         _sales = []; _products = []; _shops = []; _users = [];
     }
 
+    populateReportCategoryFilter();
+
     const validTabs = ['daily', 'weekly', 'monthly', 'profit', 'lowstock', 'chart', 'byshop'];
     const hash      = window.location.hash.slice(1);
     const startTab  = validTabs.includes(hash) ? hash : 'daily';
@@ -364,6 +396,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchReportTab(btn.dataset.period));
+    });
+
+    // Filters only affect the Daily/Weekly/Monthly sales tab — re-render it on change
+    const rerenderSalesTab = () => {
+        if (['daily', 'weekly', 'monthly'].includes(currentPeriod)) {
+            renderSalesSummary(currentPeriod);
+            renderSalesTable(currentPeriod);
+        }
+    };
+    document.getElementById('filterFromDate')?.addEventListener('change', e => { filterFrom = e.target.value; rerenderSalesTab(); });
+    document.getElementById('filterToDate')?.addEventListener('change',   e => { filterTo   = e.target.value; rerenderSalesTab(); });
+    document.getElementById('filterCategory')?.addEventListener('change', e => { filterCategory = e.target.value; rerenderSalesTab(); });
+    document.getElementById('filterPaymentMethod')?.addEventListener('change', e => { filterPaymentMethod = e.target.value; rerenderSalesTab(); });
+    document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
+        filterFrom = ''; filterTo = ''; filterCategory = ''; filterPaymentMethod = '';
+        document.getElementById('filterFromDate').value = '';
+        document.getElementById('filterToDate').value = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterPaymentMethod').value = '';
+        rerenderSalesTab();
     });
 
     document.getElementById('printReportBtn')?.addEventListener('click',     () => window.print());

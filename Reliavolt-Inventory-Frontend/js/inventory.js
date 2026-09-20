@@ -36,7 +36,7 @@ function renderProductTable() {
     });
 
     const admin = isAdmin();
-    const colspan = admin ? 10 : 6;
+    const colspan = admin ? 11 : 7;
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="${colspan}">
             <div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div>
@@ -74,6 +74,7 @@ function renderProductTable() {
             ${shopCell}
             ${costCell}
             <td class="price-cell">${formatCurrency(p.selling_price)}</td>
+            <td class="price-cell">${formatCurrency(p.commission || 0)}</td>
             ${profitCell}
             <td class="qty-cell">${p.quantity}</td>
             <td><span class="badge ${status.cls}">${status.label}</span></td>
@@ -106,6 +107,7 @@ function openAddProduct() {
     document.getElementById('productForm').reset();
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productIcon').value = '📦';
+    document.getElementById('productCommission').value = 0;
     if (isAdmin()) populateProductShopSelect();
     clearPricePreview();
     openModal('productModal');
@@ -124,6 +126,7 @@ function openEditProduct(id) {
     document.getElementById('productSelling').value       = product.selling_price;
     document.getElementById('productQuantity').value      = product.quantity;
     document.getElementById('productIcon').value          = product.icon || '📦';
+    document.getElementById('productCommission').value    = product.commission || 0;
 
     if (isAdmin()) {
         populateProductShopSelect();
@@ -141,14 +144,16 @@ async function saveProduct() {
     const selling_price = parseFloat(document.getElementById('productSelling').value);
     const quantity      = parseInt(document.getElementById('productQuantity').value);
     const icon          = document.getElementById('productIcon').value.trim() || '📦';
+    const commission    = parseFloat(document.getElementById('productCommission').value) || 0;
 
     if (!name || !category || !brand || isNaN(selling_price) || isNaN(quantity)) {
         showToast('Please fill in all required fields.', 'error');
         return;
     }
-    if (quantity < 0) { showToast('Quantity cannot be negative.', 'error'); return; }
+    if (quantity < 0)   { showToast('Quantity cannot be negative.', 'error'); return; }
+    if (commission < 0) { showToast('Commission cannot be negative.', 'error'); return; }
 
-    const payload = { name, category, brand, selling_price, quantity, icon };
+    const payload = { name, category, brand, selling_price, quantity, icon, commission };
 
     // Cost price and shop assignment are Admin-only fields
     if (isAdmin()) {

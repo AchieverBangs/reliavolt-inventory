@@ -58,6 +58,9 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS shop_id INTEGER REFERENCES shops(i
 UPDATE products SET shop_id = 1 WHERE shop_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_products_shop_id ON products(shop_id);
 
+-- Commission — flat amount paid per unit sold, set on the product itself
+ALTER TABLE products ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0;
+
 -- Customers
 CREATE TABLE IF NOT EXISTS customers (
     id         SERIAL PRIMARY KEY,
@@ -90,6 +93,28 @@ CREATE TABLE IF NOT EXISTS sales (
     shop_id        INTEGER       REFERENCES shops(id) ON DELETE SET NULL,
     sale_date      TIMESTAMP     NOT NULL DEFAULT NOW()
 );
+
+-- Attribute each sale to whoever rang it up (needed for commission) and record
+-- the commission earned at sale time (captured then, so later changes to a
+-- product's commission rate don't rewrite history).
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
+
+-- System-wide activity log (every create/update/delete, for Admin review)
+CREATE TABLE IF NOT EXISTS activity_log (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    username    VARCHAR(100),
+    name        VARCHAR(255),
+    role        VARCHAR(50),
+    action      VARCHAR(20)  NOT NULL,
+    entity_type VARCHAR(50)  NOT NULL,
+    entity_id   INTEGER,
+    description TEXT,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);
 
 -- Deliveries
 CREATE TABLE IF NOT EXISTS deliveries (
