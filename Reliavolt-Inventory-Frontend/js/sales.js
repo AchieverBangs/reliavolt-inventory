@@ -5,6 +5,10 @@ let _customers = [];
 let _sales     = [];
 let _settings  = {};
 
+const SALES_PER_PAGE = 10;
+let salesPage = 1;
+let salesDateFilter = '';
+
 let currentSale = {
     productId:     null,
     qty:           1,
@@ -181,6 +185,7 @@ async function recordSale() {
         if (pidx !== -1) _products[pidx].quantity -= qty;
 
         _sales.unshift(sale);
+        salesPage = 1; // jump back to page 1 so the new sale is visible right away
 
         currentSale.receiptNo = sale.receipt_no;
         updateReceiptPreview();
@@ -218,15 +223,28 @@ function resetSaleForm() {
     updateReceiptPreview();
 }
 
-// ===== RECENT SALES TABLE =====
+// ===== RECENT SALES TABLE (filtered by date, paginated 10 at a time) =====
 function renderRecentSales() {
     const tbody = document.getElementById('recentSalesBody');
     if (!tbody) return;
 
     const admin = isAdmin();
-    const sales = _sales.slice(0, 20);
+    const filtered = salesDateFilter
+        ? _sales.filter(s => (s.sale_date || '').slice(0, 10) === salesDateFilter)
+        : _sales;
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / SALES_PER_PAGE));
+    if (salesPage > totalPages) salesPage = totalPages;
+    if (salesPage < 1) salesPage = 1;
+
+    const startIdx = (salesPage - 1) * SALES_PER_PAGE;
+    const sales = filtered.slice(startIdx, startIdx + SALES_PER_PAGE);
+
+    renderSalesPagination(filtered.length, totalPages);
+
     if (!sales.length) {
-        tbody.innerHTML = `<tr><td colspan="${admin ? 8 : 7}"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded yet.</p></div></td></tr>`;
+        const msg = salesDateFilter ? 'No sales on this date.' : 'No sales recorded yet.';
+        tbody.innerHTML = `<tr><td colspan="${admin ? 8 : 7}"><div class="empty-state"><span class="empty-icon">🛒</span><p>${msg}</p></div></td></tr>`;
         return;
     }
 
@@ -246,6 +264,29 @@ function renderRecentSales() {
                 </div>
             </td>
         </tr>`).join('');
+}
+
+function renderSalesPagination(totalCount, totalPages) {
+    const container = document.getElementById('salesPagination');
+    if (!container) return;
+
+    if (!totalCount) { container.innerHTML = ''; return; }
+
+    const startItem = (salesPage - 1) * SALES_PER_PAGE + 1;
+    const endItem    = Math.min(salesPage * SALES_PER_PAGE, totalCount);
+
+    container.innerHTML = `
+        <span class="pagination-info">Showing ${startItem}–${endItem} of ${totalCount}</span>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+            <button class="btn btn-secondary btn-sm" ${salesPage <= 1 ? 'disabled' : ''} onclick="changeSalesPage(${salesPage - 1})">← Prev</button>
+            <span style="font-size:0.85rem;color:var(--text-light);">Page ${salesPage} of ${totalPages}</span>
+            <button class="btn btn-secondary btn-sm" ${salesPage >= totalPages ? 'disabled' : ''} onclick="changeSalesPage(${salesPage + 1})">Next →</button>
+        </div>`;
+}
+
+function changeSalesPage(page) {
+    salesPage = page;
+    renderRecentSales();
 }
 
 // ===== DELETE SALE =====
@@ -374,6 +415,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('recordSaleBtn')?.addEventListener('click', recordSale);
     document.getElementById('saveEditSaleBtn')?.addEventListener('click', saveEditSale);
+
+    document.getElementById('recentSalesDateFilter')?.addEventListener('change', e => {
+        salesDateFilter = e.target.value;
+        salesPage = 1;
+        renderRecentSales();
+    });
+    document.getElementById('clearSalesDateFilterBtn')?.addEventListener('click', () => {
+        salesDateFilter = '';
+        salesPage = 1;
+        document.getElementById('recentSalesDateFilter').value = '';
+        renderRecentSales();
+    });
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
     document.getElementById('newSaleBtn')?.addEventListener('click', () => {
         resetSaleForm();
