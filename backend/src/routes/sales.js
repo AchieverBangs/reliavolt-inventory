@@ -103,8 +103,26 @@ router.get('/:id', verifyToken, async (req, res) => {
 // POST /api/sales  — records a sale, decrements stock, and auto-creates the customer record
 // (customers are never added by hand — a name only enters the system via a sale)
 router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
-    const { product_id, customer_id, customer_name, customer_phone, qty, payment_method } = req.body;
+    const { product_id, customer_id, customer_name, customer_phone, qty, payment_method, sale_date } = req.body;
     if (!product_id || !qty) return res.status(400).json({ error: 'product_id and qty are required' });
+
+    // Optional backdating — lets a late entry reflect when the sale actually happened
+    // instead of when it was typed in. Keeps the current time-of-day so same-day
+    // entries still sort sensibly against each other; future dates are rejected.
+    let saleDate = new Date();
+    if (sale_date) {
+        const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(sale_date);
+        if (!parts) return res.status(400).json({ error: 'sale_date must be in YYYY-MM-DD format' });
+        const [, y, m, d] = parts.map(Number);
+        const now = new Date();
+        const chosenDateOnly = new Date(y, m - 1, d);
+        if (isNaN(chosenDateOnly.getTime())) return res.status(400).json({ error: 'Invalid sale_date' });
+
+        const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (chosenDateOnly > todayOnly) return res.status(400).json({ error: 'Sale date cannot be in the future' });
+
+        saleDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+    }
 
     const client = await pool.connect();
     try {
@@ -169,9 +187,9 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             `INSERT INTO sales
              (receipt_no, product_id, product_name, customer_id, customer_name, qty,
               unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING *`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
             [receiptNo, product_id, product.name, resolvedCustomerId, cName,
-             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId]
+             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate]
         );
 
         await client.query('COMMIT');

@@ -158,8 +158,10 @@ async function recordSale() {
     const qty          = parseInt(document.getElementById('saleQty').value) || 1;
     const customerName = document.getElementById('customerName').value.trim();
     const paymentMethod = currentSale.paymentMethod;
+    const saleDate      = document.getElementById('saleDate')?.value || '';
 
     if (qty < 1) { showToast('Quantity must be at least 1.', 'error'); return; }
+    if (saleDate && saleDate > todayStr()) { showToast('Sale date cannot be in the future.', 'error'); return; }
 
     const product = _products.find(p => p.id === currentSale.productId);
     if (!product) { showToast('Product not found.', 'error'); return; }
@@ -171,6 +173,7 @@ async function recordSale() {
             customer_name:  customerName || 'Walk-in Customer',
             qty,
             payment_method: paymentMethod,
+            sale_date:      saleDate || undefined,
         });
 
         // Update local product quantity and sales list
@@ -206,6 +209,9 @@ function resetSaleForm() {
 
     const custInput = document.getElementById('customerName');
     if (custInput) custInput.value = '';
+
+    const dateInput = document.getElementById('saleDate');
+    if (dateInput) dateInput.value = todayStr();
 
     clearProductInfo();
     updateAmountDisplay();
@@ -285,6 +291,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Failed to load data: ' + err.message, 'error');
         _products = []; _shops = []; _customers = []; _sales = []; _settings = {};
     }
+
+    const dateInput = document.getElementById('saleDate');
+    if (dateInput) { dateInput.max = todayStr(); dateInput.value = todayStr(); }
 
     populateShopSelect();
     populateProductSelect();
