@@ -240,7 +240,10 @@ function renderRecentSales() {
             ${admin ? `<td><span style="color:#16a34a;font-weight:600;">${formatCurrency(s.profit)}</span></td>` : ''}
             <td><span class="badge badge-secondary">${escHtml(s.payment_method || 'Cash')}</span></td>
             <td>
-                ${admin ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : '—'}
+                <div class="action-cell">
+                    <button class="btn btn-warning btn-sm" onclick="openEditSale(${s.id})">✏️ Edit</button>
+                    ${admin ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : ''}
+                </div>
             </td>
         </tr>`).join('');
 }
@@ -260,6 +263,50 @@ async function deleteSale(id) {
             showToast(err.message, 'error');
         }
     });
+}
+
+// ===== EDIT SALE (date, customer name, payment method only) =====
+let editingSaleId = null;
+
+function openEditSale(id) {
+    const sale = _sales.find(s => s.id === id);
+    if (!sale) return;
+
+    editingSaleId = id;
+    document.getElementById('editSaleReceipt').textContent = sale.receipt_no;
+    const dateInput = document.getElementById('editSaleDate');
+    dateInput.max   = todayStr();
+    dateInput.value = (sale.sale_date || '').split('T')[0];
+    document.getElementById('editSaleCustomer').value = sale.customer_name === 'Walk-in Customer' ? '' : sale.customer_name;
+    document.getElementById('editSalePayment').value  = sale.payment_method || 'Cash';
+
+    openModal('editSaleModal');
+}
+
+async function saveEditSale() {
+    if (!editingSaleId) return;
+
+    const saleDate      = document.getElementById('editSaleDate').value;
+    const customerName  = document.getElementById('editSaleCustomer').value.trim();
+    const paymentMethod = document.getElementById('editSalePayment').value;
+
+    if (!saleDate) { showToast('Please choose a sale date.', 'error'); return; }
+    if (saleDate > todayStr()) { showToast('Sale date cannot be in the future.', 'error'); return; }
+
+    try {
+        const updated = await api.put(`/api/sales/${editingSaleId}`, {
+            sale_date:      saleDate,
+            customer_name:  customerName || 'Walk-in Customer',
+            payment_method: paymentMethod,
+        });
+        const idx = _sales.findIndex(s => s.id === editingSaleId);
+        if (idx !== -1) _sales[idx] = updated;
+        showToast(`Receipt ${updated.receipt_no} updated.`, 'success');
+        closeModal('editSaleModal');
+        renderRecentSales();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 // ===== POPULATE CUSTOMER DATALIST =====
@@ -326,6 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('recordSaleBtn')?.addEventListener('click', recordSale);
+    document.getElementById('saveEditSaleBtn')?.addEventListener('click', saveEditSale);
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
     document.getElementById('newSaleBtn')?.addEventListener('click', () => {
         resetSaleForm();

@@ -13,6 +13,23 @@ function hideCost(rowOrRows, role) {
     return Array.isArray(rowOrRows) ? rowOrRows.map(strip) : strip(rowOrRows);
 }
 
+// Parses a YYYY-MM-DD sale_date, rejects future dates, and keeps a given time-of-day
+// (defaults to now) so same-day entries still sort sensibly against each other.
+// Throws on invalid input — callers decide how to turn that into an HTTP response.
+function parseSaleDate(sale_date, keepTimeFrom = new Date()) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(sale_date);
+    if (!parts) throw new Error('sale_date must be in YYYY-MM-DD format');
+    const [, y, m, d] = parts.map(Number);
+    const chosenDateOnly = new Date(y, m - 1, d);
+    if (isNaN(chosenDateOnly.getTime())) throw new Error('Invalid sale_date');
+
+    const now = new Date();
+    const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (chosenDateOnly > todayOnly) throw new Error('Sale date cannot be in the future');
+
+    return new Date(y, m - 1, d, keepTimeFrom.getHours(), keepTimeFrom.getMinutes(), keepTimeFrom.getSeconds());
+}
+
 // GET /api/sales  (optional ?from=&to=&product_id=&payment_method= filters; non-Admins scoped to their own shop)
 router.get('/', verifyToken, async (req, res) => {
     try {
@@ -107,21 +124,14 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     if (!product_id || !qty) return res.status(400).json({ error: 'product_id and qty are required' });
 
     // Optional backdating — lets a late entry reflect when the sale actually happened
-    // instead of when it was typed in. Keeps the current time-of-day so same-day
-    // entries still sort sensibly against each other; future dates are rejected.
+    // instead of when it was typed in.
     let saleDate = new Date();
     if (sale_date) {
-        const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(sale_date);
-        if (!parts) return res.status(400).json({ error: 'sale_date must be in YYYY-MM-DD format' });
-        const [, y, m, d] = parts.map(Number);
-        const now = new Date();
-        const chosenDateOnly = new Date(y, m - 1, d);
-        if (isNaN(chosenDateOnly.getTime())) return res.status(400).json({ error: 'Invalid sale_date' });
-
-        const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        if (chosenDateOnly > todayOnly) return res.status(400).json({ error: 'Sale date cannot be in the future' });
-
-        saleDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+        try {
+            saleDate = parseSaleDate(sale_date);
+        } catch (err) {
+            return res.status(400).json({ error: err.message });
+        }
     }
 
     const client = await pool.connect();
@@ -198,6 +208,82 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(400).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// PUT /api/sales/:id  — edit an already-recorded sale, scoped to the caller's own
+// shop for non-Admins. Only date, payment method, and customer name can change —
+// product/quantity/prices stay locked (changing those would mean reversing and
+// reapplying stock and profit, a much bigger operation); delete and re-record
+// instead if one of those was wrong.
+router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
+    const { sale_date, payment_method, customer_name, customer_phone } = req.body;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: existing } = await client.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const sale = existing[0];
+        if (!sale) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
+        if (req.user.role !== 'Admin' && sale.shop_id !== req.user.shopId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'You can only edit sales from your own shop' });
+        }
+
+        let newSaleDate = sale.sale_date;
+        if (sale_date !== undefined) {
+            try {
+                newSaleDate = parseSaleDate(sale_date, new Date(sale.sale_date));
+            } catch (err) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: err.message });
+            }
+        }
+
+        // Re-resolve the customer the same way a fresh sale does, only if the name actually changed
+        let resolvedCustomerId = sale.customer_id;
+        let cName = sale.customer_name;
+        if (customer_name !== undefined && customer_name.trim() && customer_name.trim() !== sale.customer_name) {
+            const name = customer_name.trim();
+            if (name.toLowerCase() === 'walk-in customer') {
+                resolvedCustomerId = null;
+                cName = 'Walk-in Customer';
+            } else {
+                const { rows: existingCust } = await client.query(
+                    'SELECT id, name FROM customers WHERE LOWER(name) = LOWER($1) AND shop_id = $2',
+                    [name, sale.shop_id]
+                );
+                if (existingCust[0]) {
+                    resolvedCustomerId = existingCust[0].id;
+                    cName = existingCust[0].name;
+                } else {
+                    const { rows: created } = await client.query(
+                        'INSERT INTO customers (name, phone, shop_id) VALUES ($1, $2, $3) RETURNING id, name',
+                        [name, customer_phone || null, sale.shop_id]
+                    );
+                    resolvedCustomerId = created[0].id;
+                    cName = created[0].name;
+                }
+            }
+        }
+
+        const newPaymentMethod = payment_method !== undefined ? payment_method : sale.payment_method;
+
+        const { rows: updated } = await client.query(
+            `UPDATE sales SET sale_date=$1, payment_method=$2, customer_id=$3, customer_name=$4 WHERE id=$5 RETURNING *`,
+            [newSaleDate, newPaymentMethod, resolvedCustomerId, cName, req.params.id]
+        );
+
+        await client.query('COMMIT');
+        logActivity(req, 'update', 'sale', updated[0].id, `Edited sale — receipt ${updated[0].receipt_no}`);
+        res.json(hideCost(updated[0], req.user.role));
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     } finally {
         client.release();
     }
