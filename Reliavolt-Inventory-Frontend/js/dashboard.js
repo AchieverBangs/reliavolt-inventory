@@ -71,21 +71,28 @@ const ROLE_BADGE_CLASS = {
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+// The Month/Year filter is duplicated on both the "Your Commission" and "Commission by
+// Staff" cards so either one can be used — they're kept in sync and drive the same fetch.
 function initCommissionFilters() {
-    const yearSelect = document.getElementById('commissionYearFilter');
-    if (!yearSelect || yearSelect.options.length) return; // already populated
-    const currentYear = new Date().getFullYear();
-    for (let y = currentYear; y >= currentYear - 4; y--) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        yearSelect.appendChild(opt);
-    }
-    yearSelect.value = currentYear;
+    const yearSelects = [document.getElementById('commissionYearFilter'), document.getElementById('commissionByStaffYearFilter')].filter(Boolean);
+    const monthSelects = [document.getElementById('commissionMonthFilter'), document.getElementById('commissionByStaffMonthFilter')].filter(Boolean);
+    if (!yearSelects.length || yearSelects[0].options.length) return; // already populated
 
-    const monthSelect = document.getElementById('commissionMonthFilter');
-    monthSelect?.addEventListener('change', renderCommission);
-    yearSelect.addEventListener('change', renderCommission);
+    const currentYear = new Date().getFullYear();
+    yearSelects.forEach(sel => {
+        for (let y = currentYear; y >= currentYear - 4; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            sel.appendChild(opt);
+        }
+        sel.value = currentYear;
+    });
+
+    const onMonthChange = (e) => { monthSelects.forEach(sel => { if (sel !== e.target) sel.value = e.target.value; }); renderCommission(); };
+    const onYearChange  = (e) => { yearSelects.forEach(sel  => { if (sel !== e.target) sel.value = e.target.value; }); renderCommission(); };
+    monthSelects.forEach(sel => sel.addEventListener('change', onMonthChange));
+    yearSelects.forEach(sel  => sel.addEventListener('change', onYearChange));
 }
 
 async function renderCommission() {
