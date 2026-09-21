@@ -212,6 +212,24 @@
                 <div class="card hidden" id="commissionCard" style="margin-bottom:1.5rem;">
                     <div class="chart-header">
                         <span class="chart-title">Your Commission</span>
+                        <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                            <select class="form-control" id="commissionMonthFilter" style="max-width:140px;">
+                                <option value="">All Months</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                            <select class="form-control" id="commissionYearFilter" style="max-width:110px;"></select>
+                        </div>
                     </div>
                     <div class="stats-grid" style="margin-top:0;">
                         <div class="stat-card teal" style="cursor:default;">
@@ -242,6 +260,13 @@
                                 <div class="stat-value currency" id="commissionYear">Le 0</div>
                             </div>
                         </div>
+                        <div class="stat-card teal" style="cursor:default;">
+                            <div class="stat-icon-wrap">🔎</div>
+                            <div class="stat-body">
+                                <div class="stat-label" id="commissionSelectedLabel">Selected Period</div>
+                                <div class="stat-value currency" id="commissionSelected">Le 0</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -260,6 +285,7 @@
                                     <th>This Week</th>
                                     <th>This Month</th>
                                     <th>This Year</th>
+                                    <th id="commissionByStaffSelectedHeader">Selected Period</th>
                                 </tr>
                             </thead>
                             <tbody id="commissionByStaffBody"></tbody>

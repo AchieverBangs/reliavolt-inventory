@@ -69,6 +69,25 @@ const ROLE_BADGE_CLASS = {
     'Stock Manager': 'role-stock', 'Delivery Person': 'role-driver',
 };
 
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function initCommissionFilters() {
+    const yearSelect = document.getElementById('commissionYearFilter');
+    if (!yearSelect || yearSelect.options.length) return; // already populated
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= currentYear - 4; y--) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+    }
+    yearSelect.value = currentYear;
+
+    const monthSelect = document.getElementById('commissionMonthFilter');
+    monthSelect?.addEventListener('change', renderCommission);
+    yearSelect.addEventListener('change', renderCommission);
+}
+
 async function renderCommission() {
     const role = getCurrentUserRole();
     if (!['Admin', 'Manager', 'Cashier'].includes(role)) return;
@@ -76,14 +95,27 @@ async function renderCommission() {
     const card = document.getElementById('commissionCard');
     if (card) card.classList.remove('hidden');
 
+    initCommissionFilters();
+
+    const year  = document.getElementById('commissionYearFilter')?.value || '';
+    const month = document.getElementById('commissionMonthFilter')?.value || '';
+
     try {
-        const summary = await api.get('/api/sales/commission/summary');
+        const qs = year ? `?year=${encodeURIComponent(year)}${month ? `&month=${encodeURIComponent(month)}` : ''}` : '';
+        const summary = await api.get('/api/sales/commission/summary' + qs);
         setEl('commissionToday', formatCurrency(summary.mine.today));
         setEl('commissionWeek',  formatCurrency(summary.mine.week));
         setEl('commissionMonth', formatCurrency(summary.mine.month));
         setEl('commissionYear',  formatCurrency(summary.mine.year));
 
+        const selectedLabel = month ? `${MONTH_NAMES[parseInt(month, 10) - 1]} ${year}` : (year ? `All of ${year}` : 'Selected Period');
+        setEl('commissionSelectedLabel', selectedLabel);
+        setEl('commissionSelected', formatCurrency(summary.mine.selected || 0));
+
         if (summary.byStaff) {
+            const staffHeader = document.getElementById('commissionByStaffSelectedHeader');
+            if (staffHeader) staffHeader.textContent = selectedLabel;
+
             const tbody = document.getElementById('commissionByStaffBody');
             if (tbody) {
                 tbody.innerHTML = summary.byStaff.map(s => `<tr>
@@ -93,7 +125,8 @@ async function renderCommission() {
                     <td>${formatCurrency(s.week)}</td>
                     <td>${formatCurrency(s.month)}</td>
                     <td>${formatCurrency(s.year)}</td>
-                </tr>`).join('') || `<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
+                    <td>${formatCurrency(s.selected || 0)}</td>
+                </tr>`).join('') || `<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
             }
         }
     } catch (err) {

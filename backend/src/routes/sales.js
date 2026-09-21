@@ -63,6 +63,8 @@ router.get('/', verifyToken, async (req, res) => {
 
 // GET /api/sales/commission/summary — the caller's own commission by day/week/month/year;
 // Admins also get a by-staff breakdown across everyone who can sell.
+// Optional ?year=&month= (month 1-12) filters an additional "selected" total for any
+// specific month/year (or the whole year, if month is omitted) on top of the fixed buckets.
 router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
         const { rows: mine } = await pool.query(
@@ -77,19 +79,40 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
 
         const result = { mine: mine[0] };
 
+        const year  = parseInt(req.query.year, 10);
+        const monthRaw = parseInt(req.query.month, 10);
+        const month = (monthRaw >= 1 && monthRaw <= 12) ? monthRaw : null;
+
+        if (year) {
+            const { rows: selected } = await pool.query(
+                `SELECT COALESCE(SUM(commission) FILTER (
+                    WHERE EXTRACT(YEAR FROM sale_date) = $2
+                      AND ($3::int IS NULL OR EXTRACT(MONTH FROM sale_date) = $3)
+                 ), 0) AS selected
+                 FROM sales WHERE commission_user_id = $1`,
+                [req.user.id, year, month]
+            );
+            result.mine.selected = selected[0].selected;
+            result.selectedPeriod = { year, month };
+        }
+
         if (req.user.role === 'Admin') {
             const { rows: byStaff } = await pool.query(
                 `SELECT u.id AS user_id, u.name, u.username, u.role,
                     COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= CURRENT_DATE), 0) AS today,
                     COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
                     COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
-                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
+                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
+                    COALESCE(SUM(s.commission) FILTER (
+                        WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.sale_date) = $2
+                          AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.sale_date) = $3)
+                    ), 0) AS selected
                  FROM users u
                  LEFT JOIN sales s ON s.commission_user_id = u.id
                  WHERE u.role = ANY($1)
                  GROUP BY u.id, u.name, u.username, u.role
                  ORDER BY u.name`,
-                [SALE_ROLES]
+                [SALE_ROLES, year || null, month]
             );
             result.byStaff = byStaff;
         }
