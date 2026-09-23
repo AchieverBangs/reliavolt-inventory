@@ -268,6 +268,7 @@
                             </div>
                         </div>
                     </div>
+                    <div id="commissionSettlementBar" style="display:none;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);gap:0.75rem;flex-wrap:wrap;"></div>
                 </div>
 
                 <!-- Commission by Staff (Admin only) -->
@@ -304,6 +305,7 @@
                                     <th>This Month</th>
                                     <th>This Year</th>
                                     <th id="commissionByStaffSelectedHeader">Selected Period</th>
+                                    <th>Payment Status</th>
                                 </tr>
                             </thead>
                             <tbody id="commissionByStaffBody"></tbody>
@@ -468,6 +470,44 @@
             </div><!-- end #driverDashboard -->
 
         </main>
+    </div>
+</div>
+
+<!-- Confirm My Commission Modal (Admin/Manager/Cashier) -->
+<div class="modal-overlay" id="commissionConfirmModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Confirm Your Commission</h2>
+            <button class="modal-close" id="commissionConfirmCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>You earned <strong id="commissionConfirmAmount">Le 0</strong> in commission for
+                <strong id="commissionConfirmPeriod">—</strong>.</p>
+            <p style="font-size:0.85rem;color:var(--text-light);">Please confirm that you have received this payment.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close" id="commissionConfirmLaterBtn">Remind Me Later</button>
+            <button class="btn btn-primary" id="commissionConfirmYesBtn">Yes, I Received It</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Staff Commission Payments Modal (Admin only) -->
+<div class="modal-overlay" id="commissionAdminConfirmModal">
+    <div class="modal" style="max-width:520px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Confirm Staff Commission Payments</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">
+                These staff members earned commission in a month that's already ended. Confirm once you've paid them.
+            </p>
+            <div id="commissionAdminConfirmList"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
+        </div>
     </div>
 </div>
 

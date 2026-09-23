@@ -119,6 +119,8 @@ async function renderCommission() {
         setEl('commissionSelectedLabel', selectedLabel);
         setEl('commissionSelected', formatCurrency(summary.mine.selected || 0));
 
+        renderMySettlementBar(summary.mine, year, month, selectedLabel);
+
         if (summary.byStaff) {
             const staffHeader = document.getElementById('commissionByStaffSelectedHeader');
             if (staffHeader) staffHeader.textContent = selectedLabel;
@@ -133,11 +135,194 @@ async function renderCommission() {
                     <td>${formatCurrency(s.month)}</td>
                     <td>${formatCurrency(s.year)}</td>
                     <td>${formatCurrency(s.selected || 0)}</td>
-                </tr>`).join('') || `<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
+                    <td>${renderStaffPaymentStatus(s, year, month)}</td>
+                </tr>`).join('') || `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
+
+                tbody.querySelectorAll('[data-mark-paid]').forEach(btn => {
+                    btn.addEventListener('click', () => confirmAdminPayment(
+                        Number(btn.dataset.markPaid), Number(year), Number(month), btn, true
+                    ));
+                });
             }
         }
     } catch (err) {
         showToast('Failed to load commission: ' + err.message, 'error');
+    }
+}
+
+// Small status line under "Your Commission" showing whether the selected month's commission
+// has been confirmed received (by the staff member) and confirmed paid (by an Admin).
+function renderMySettlementBar(mine, year, month, selectedLabel) {
+    const bar = document.getElementById('commissionSettlementBar');
+    if (!bar) return;
+
+    const total = Number(mine.selected || 0);
+    if (!month || total <= 0) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+
+    const settlement = mine.settlement || {};
+    const staffDone = !!settlement.staff_confirmed_at;
+    const adminDone = !!settlement.admin_confirmed_at;
+
+    let html = staffDone
+        ? `<span class="badge badge-success">✅ You confirmed receipt for ${escHtml(selectedLabel)}</span>`
+        : `<span class="badge badge-secondary">⏳ Not yet confirmed for ${escHtml(selectedLabel)}</span>
+           <button class="btn btn-primary btn-sm" id="confirmMyCommissionInlineBtn">Confirm Received</button>`;
+
+    if (getCurrentUserRole() === 'Admin') {
+        html += adminDone
+            ? ` <span class="badge badge-success">✅ Marked paid</span>`
+            : ` <span class="badge badge-secondary">⏳ Not marked paid</span>
+                <button class="btn btn-secondary btn-sm" id="confirmMyPaymentInlineBtn">Mark Paid</button>`;
+    }
+
+    bar.style.display = 'flex';
+    bar.innerHTML = html;
+
+    document.getElementById('confirmMyCommissionInlineBtn')?.addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        try {
+            await api.post('/api/commission/confirm-mine', { year: Number(year), month: Number(month) });
+            showToast('Commission confirmed. Thank you!', 'success');
+            renderCommission();
+        } catch (err) {
+            showToast('Failed to confirm: ' + err.message, 'error');
+            e.target.disabled = false;
+        }
+    });
+    document.getElementById('confirmMyPaymentInlineBtn')?.addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        try {
+            await api.post(`/api/commission/${getCurrentUserId()}/confirm-admin`, { year: Number(year), month: Number(month) });
+            showToast('Marked as paid.', 'success');
+            renderCommission();
+        } catch (err) {
+            showToast('Failed to confirm: ' + err.message, 'error');
+            e.target.disabled = false;
+        }
+    });
+}
+
+// Payment-status cell for one staff row in the Commission by Staff table.
+function renderStaffPaymentStatus(s, year, month) {
+    if (!month) return `<span style="color:var(--text-light);font-size:0.8rem;">Pick a month</span>`;
+    if (!Number(s.selected)) return `<span style="color:var(--text-light);font-size:0.8rem;">—</span>`;
+
+    const staffBadge = s.staff_confirmed_at
+        ? `<span class="badge badge-success" style="font-size:0.72rem;">Received</span>`
+        : `<span class="badge badge-secondary" style="font-size:0.72rem;">Not confirmed</span>`;
+
+    const adminPart = s.admin_confirmed_at
+        ? `<span class="badge badge-success" style="font-size:0.72rem;">Paid</span>`
+        : `<button class="btn btn-secondary btn-sm" data-mark-paid="${s.user_id}">Mark Paid</button>`;
+
+    return `<div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">${staffBadge}${adminPart}</div>`;
+}
+
+// ===== COMMISSION SETTLEMENT — pending confirmations (shown once per dashboard load) =====
+// Both this personal modal and the Admin's pending-payments modal share the same overlay
+// z-index, so they must never be open at once — the admin check only runs once this one
+// is fully resolved (queue drained, or the user dismisses it), never in parallel with it.
+let _pendingMineQueue = [];
+
+async function checkPendingCommissionConfirmations() {
+    if (!['Admin', 'Manager', 'Cashier'].includes(getCurrentUserRole())) return false;
+    try {
+        _pendingMineQueue = await api.get('/api/commission/pending-mine');
+    } catch { return false; }
+    if (!_pendingMineQueue.length) return false;
+    showNextPendingConfirmation();
+    return true;
+}
+
+function showNextPendingConfirmation() {
+    if (!_pendingMineQueue.length) return;
+    const item = _pendingMineQueue[0];
+    setEl('commissionConfirmAmount', formatCurrency(item.total));
+    setEl('commissionConfirmPeriod', `${MONTH_NAMES[item.month - 1]} ${item.year}`);
+    openModal('commissionConfirmModal');
+}
+
+function dismissPersonalCommissionModal() {
+    checkPendingAdminConfirmations();
+}
+
+async function confirmMyCommissionFromModal() {
+    const item = _pendingMineQueue[0];
+    if (!item) return;
+    const btn = document.getElementById('commissionConfirmYesBtn');
+    if (btn) btn.disabled = true;
+    try {
+        await api.post('/api/commission/confirm-mine', { year: item.year, month: item.month });
+        showToast(`Confirmed for ${MONTH_NAMES[item.month - 1]} ${item.year}. Thank you!`, 'success');
+        _pendingMineQueue.shift();
+        if (_pendingMineQueue.length) {
+            showNextPendingConfirmation();
+        } else {
+            closeModal('commissionConfirmModal');
+            checkPendingAdminConfirmations();
+        }
+        renderCommission();
+    } catch (err) {
+        showToast('Failed to confirm: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function checkPendingAdminConfirmations() {
+    if (getCurrentUserRole() !== 'Admin') return;
+    try {
+        const rows = await api.get('/api/commission/pending-admin');
+        if (!rows.length) return;
+        renderAdminConfirmList(rows);
+        openModal('commissionAdminConfirmModal');
+    } catch { /* silent — this is a best-effort nudge, not critical data */ }
+}
+
+function renderAdminConfirmList(rows) {
+    const container = document.getElementById('commissionAdminConfirmList');
+    if (!container) return;
+    if (!rows.length) {
+        container.innerHTML = `<p style="text-align:center;color:var(--text-light);padding:1rem 0;">All caught up — nothing pending.</p>`;
+        return;
+    }
+    container.innerHTML = rows.map(r => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border);" data-user="${r.user_id}">
+            <div>
+                <strong>${escHtml(r.name)}</strong><br>
+                <span style="font-size:0.8rem;color:var(--text-light);">${MONTH_NAMES[r.month - 1]} ${r.year} — ${formatCurrency(r.total)}</span>
+            </div>
+            <button class="btn btn-primary btn-sm" data-mark-paid="${r.user_id}" data-year="${r.year}" data-month="${r.month}">Mark Paid</button>
+        </div>`).join('');
+
+    container.querySelectorAll('[data-mark-paid]').forEach(btn => {
+        btn.addEventListener('click', () => confirmAdminPayment(
+            Number(btn.dataset.markPaid), Number(btn.dataset.year), Number(btn.dataset.month), btn, false
+        ));
+    });
+}
+
+// fromTable: true when called from the Commission by Staff row (re-renders the whole table);
+// false when called from the pending-admin modal list (just removes that one row).
+async function confirmAdminPayment(userId, year, month, btnEl, fromTable) {
+    btnEl.disabled = true;
+    try {
+        await api.post(`/api/commission/${userId}/confirm-admin`, { year, month });
+        showToast('Marked as paid.', 'success');
+        if (fromTable) {
+            renderCommission();
+        } else {
+            const row = btnEl.closest('[data-user]');
+            if (row) row.remove();
+            const container = document.getElementById('commissionAdminConfirmList');
+            if (container && !container.children.length) {
+                container.innerHTML = `<p style="text-align:center;color:var(--text-light);padding:1rem 0;">All caught up — nothing pending.</p>`;
+            }
+            renderCommission();
+        }
+    } catch (err) {
+        showToast('Failed to confirm: ' + err.message, 'error');
+        btnEl.disabled = false;
     }
 }
 
@@ -417,7 +602,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderLowStockTable();
         renderProductsByShop();
         renderCommission();
+        checkPendingCommissionConfirmations().then(showedPersonal => {
+            if (!showedPersonal) checkPendingAdminConfirmations();
+        });
         setTimeout(renderSalesChart, 50);
         window.addEventListener('resize', () => setTimeout(renderSalesChart, 50));
     }
+
+    document.getElementById('commissionConfirmYesBtn')?.addEventListener('click', confirmMyCommissionFromModal);
+    document.getElementById('commissionConfirmCloseBtn')?.addEventListener('click', dismissPersonalCommissionModal);
+    document.getElementById('commissionConfirmLaterBtn')?.addEventListener('click', dismissPersonalCommissionModal);
+    document.getElementById('commissionConfirmModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'commissionConfirmModal') dismissPersonalCommissionModal();
+    });
 });

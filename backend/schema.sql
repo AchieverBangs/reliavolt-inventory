@@ -110,6 +110,25 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_commission_user_id ON sales(commission_user_id);
 
+-- One row per (staff member, month) once that month's commission has been settled.
+-- staff_confirmed_at = the earner says they received it; admin_confirmed_at = an Admin
+-- says it was paid out. Independent of each other — either can happen first.
+-- total_commission is a snapshot taken at confirm time, since a later product edit can
+-- retroactively change commission on past sales.
+CREATE TABLE IF NOT EXISTS commission_settlements (
+    id                  SERIAL PRIMARY KEY,
+    user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    year                INTEGER NOT NULL,
+    month               INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    total_commission    NUMERIC(14,2) NOT NULL DEFAULT 0,
+    staff_confirmed_at  TIMESTAMP,
+    admin_confirmed_at  TIMESTAMP,
+    admin_confirmed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, year, month)
+);
+CREATE INDEX IF NOT EXISTS idx_commission_settlements_user ON commission_settlements(user_id);
+
 -- System-wide activity log (every create/update/delete, for Admin review)
 CREATE TABLE IF NOT EXISTS activity_log (
     id          SERIAL PRIMARY KEY,

@@ -94,6 +94,17 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
             );
             result.mine.selected = selected[0].selected;
             result.selectedPeriod = { year, month };
+
+            // Settlement (confirm-received/confirm-paid) status is a per-month concept,
+            // so it's only meaningful once a specific month (not a whole year) is selected.
+            if (month) {
+                const { rows: settlement } = await pool.query(
+                    `SELECT staff_confirmed_at, admin_confirmed_at FROM commission_settlements
+                     WHERE user_id = $1 AND year = $2 AND month = $3`,
+                    [req.user.id, year, month]
+                );
+                result.mine.settlement = settlement[0] || { staff_confirmed_at: null, admin_confirmed_at: null };
+            }
         }
 
         if (req.user.role === 'Admin') {
@@ -106,11 +117,14 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                     COALESCE(SUM(s.commission) FILTER (
                         WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.sale_date) = $2
                           AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.sale_date) = $3)
-                    ), 0) AS selected
+                    ), 0) AS selected,
+                    cs.staff_confirmed_at, cs.admin_confirmed_at
                  FROM users u
                  LEFT JOIN sales s ON s.commission_user_id = u.id
+                 LEFT JOIN commission_settlements cs
+                    ON cs.user_id = u.id AND cs.year = $2::int AND cs.month = $3::int
                  WHERE u.role = ANY($1)
-                 GROUP BY u.id, u.name, u.username, u.role
+                 GROUP BY u.id, u.name, u.username, u.role, cs.staff_confirmed_at, cs.admin_confirmed_at
                  ORDER BY u.name`,
                 [SALE_ROLES, year || null, month]
             );

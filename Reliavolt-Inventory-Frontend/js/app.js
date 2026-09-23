@@ -25,6 +25,10 @@ function getCurrentUserRole() {
     return getTokenPayload()?.role || '';
 }
 
+function getCurrentUserId() {
+    return getTokenPayload()?.id || null;
+}
+
 function getCurrentUserName() {
     return getTokenPayload()?.name || '';
 }
