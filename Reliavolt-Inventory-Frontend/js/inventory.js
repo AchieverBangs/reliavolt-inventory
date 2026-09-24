@@ -77,7 +77,9 @@ function renderProductTable() {
             <td class="price-cell">${formatCurrency(p.selling_price)}</td>
             <td class="price-cell">${formatCurrency(p.commission || 0)}${p.commission_owner_name ? `<div style="font-size:0.72rem;color:var(--text-light);">→ ${escHtml(p.commission_owner_name)}</div>` : ''}</td>
             ${profitCell}
-            <td class="qty-cell">${p.quantity}</td>
+            <td class="qty-cell">${p.quantity}
+                <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.5rem;font-size:0.72rem;margin-left:0.35rem;" onclick="openStockHistory(${p.id})">History</button>
+            </td>
             <td><span class="badge ${status.cls}">${status.label}</span></td>
             ${actionsCell}
         </tr>`;
@@ -375,3 +377,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('importProductsBtn')?.addEventListener('click', openImportModal);
     document.getElementById('runImportBtn')?.addEventListener('click', runImport);
 });
+
+// ===== STOCK HISTORY =====
+// The full ledger behind a product's quantity — every addition (initial stock, restocks)
+// and deduction (sales) with a running balance, since the quantity number alone can't
+// answer "how much did I add in total" once sales have been chipping away at it.
+const MOVEMENT_LABEL = { initial: 'Initial Stock', restock: 'Restock', adjustment: 'Adjustment', sale: 'Sale' };
+const MOVEMENT_BADGE = { initial: 'badge-info', restock: 'badge-success', adjustment: 'badge-warning', sale: 'badge-secondary' };
+
+async function openStockHistory(productId) {
+    const product = _products.find(p => p.id === productId);
+    setEl('stockHistoryProductName', product ? product.name : `Product #${productId}`);
+    setEl('stockHistoryAdded', '—');
+    setEl('stockHistorySold', '—');
+    setEl('stockHistoryCurrent', '—');
+    document.getElementById('stockHistoryBody').innerHTML = `<tr><td colspan="5">Loading...</td></tr>`;
+    openModal('stockHistoryModal');
+
+    try {
+        const data = await api.get(`/api/products/${productId}/stock-history`);
+        setEl('stockHistoryAdded',   data.totalAdded);
+        setEl('stockHistorySold',    data.totalSold);
+        setEl('stockHistoryCurrent', data.current);
+
+        const tbody = document.getElementById('stockHistoryBody');
+        if (!data.movements.length) {
+            tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📦</span><p>No stock history yet.</p></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.movements.map(m => `
+            <tr>
+                <td style="font-size:0.82rem;">${formatDateTime(m.created_at)}</td>
+                <td><span class="badge ${MOVEMENT_BADGE[m.type] || 'badge-secondary'}">${MOVEMENT_LABEL[m.type] || m.type}</span></td>
+                <td style="color:${m.qty_change > 0 ? '#16a34a' : '#dc2626'};font-weight:600;">${m.qty_change > 0 ? '+' : ''}${m.qty_change}</td>
+                <td>${m.balance_after}</td>
+                <td style="font-size:0.8rem;color:var(--text-light);">${escHtml(m.receipt_no || m.note || '')}${m.user_name ? ` — ${escHtml(m.user_name)}` : ''}</td>
+            </tr>`).join('');
+    } catch (err) {
+        showToast('Failed to load stock history: ' + err.message, 'error');
+        closeModal('stockHistoryModal');
+    }
+}

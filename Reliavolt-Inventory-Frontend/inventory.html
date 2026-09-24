@@ -296,6 +296,49 @@
     </div>
 </div>
 
+<!-- Stock History Modal -->
+<div class="modal-overlay" id="stockHistoryModal">
+    <div class="modal" style="max-width:640px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Stock History — <span id="stockHistoryProductName">—</span></h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:120px;padding:0.75rem;background:var(--bg);border-radius:var(--radius);text-align:center;">
+                    <div style="font-size:0.75rem;color:var(--text-light);">Total Added</div>
+                    <div style="font-size:1.2rem;font-weight:700;color:#16a34a;" id="stockHistoryAdded">0</div>
+                </div>
+                <div style="flex:1;min-width:120px;padding:0.75rem;background:var(--bg);border-radius:var(--radius);text-align:center;">
+                    <div style="font-size:0.75rem;color:var(--text-light);">Total Sold</div>
+                    <div style="font-size:1.2rem;font-weight:700;color:#dc2626;" id="stockHistorySold">0</div>
+                </div>
+                <div style="flex:1;min-width:120px;padding:0.75rem;background:var(--bg);border-radius:var(--radius);text-align:center;">
+                    <div style="font-size:0.75rem;color:var(--text-light);">Remaining</div>
+                    <div style="font-size:1.2rem;font-weight:700;" id="stockHistoryCurrent">0</div>
+                </div>
+            </div>
+            <div class="table-wrapper" style="max-height:360px;overflow-y:auto;">
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Change</th>
+                            <th>Balance</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockHistoryBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
+        </div>
+    </div>
+</div>
+
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/inventory.js"></script>

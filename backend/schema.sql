@@ -110,6 +110,32 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_commission_user_id ON sales(commission_user_id);
 
+-- Full audit trail of every quantity change for a product — initial stock on creation,
+-- restocks/adjustments made via product edit, and deductions from each sale. A single
+-- "quantity" column can only ever show what's left right now; this answers "how much did
+-- I add in total, and where did it go" by keeping every change with a running balance.
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id            SERIAL PRIMARY KEY,
+    product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    type          VARCHAR(20) NOT NULL, -- 'initial' | 'restock' | 'adjustment' | 'sale'
+    qty_change    INTEGER NOT NULL,     -- positive = added, negative = removed
+    balance_after INTEGER NOT NULL,
+    note          TEXT,
+    user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    sale_id       INTEGER REFERENCES sales(id) ON DELETE SET NULL,
+    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id, created_at DESC);
+
+-- One-time backfill (safe to rerun — only touches products with zero movement rows so
+-- far): products added before stock history existed get a synthetic 'initial' entry
+-- equal to their current quantity, so their history isn't blank.
+INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, created_at)
+SELECT p.id, 'initial', p.quantity, p.quantity, 'Backfilled — recorded when stock history was added', p.created_at
+FROM products p
+WHERE p.quantity > 0
+  AND NOT EXISTS (SELECT 1 FROM stock_movements sm WHERE sm.product_id = p.id);
+
 -- One row per (staff member, month) once that month's commission has been settled.
 -- staff_confirmed_at = the earner says they received it; admin_confirmed_at = an Admin
 -- says it was paid out. Independent of each other — either can happen first.

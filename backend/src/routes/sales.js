@@ -239,6 +239,12 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
              qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate]
         );
 
+        await client.query(
+            `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id)
+             VALUES ($1, 'sale', $2, $3, $4, $5, $6)`,
+            [product_id, -qty, product.quantity - qty, `Sold via receipt ${receiptNo}`, req.user.id, rows[0].id]
+        );
+
         await client.query('COMMIT');
         logActivity(req, 'create', 'sale', rows[0].id, `Sold ${qty} x "${product.name}" — receipt ${receiptNo}`);
         res.status(201).json(hideCost(rows[0], req.user.role));

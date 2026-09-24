@@ -92,6 +92,39 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 });
 
+// GET /api/products/:id/stock-history — the running ledger behind a product's quantity:
+// initial stock, restocks/adjustments made via product edit, and every sale deduction,
+// each with a running balance. Answers "how much did I add in total vs. what's left."
+router.get('/:id/stock-history', verifyToken, async (req, res) => {
+    try {
+        const { rows: pRows } = await pool.query('SELECT id, shop_id, quantity FROM products WHERE id = $1', [req.params.id]);
+        const product = pRows[0];
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+        if (req.user.role !== 'Admin' && product.shop_id !== req.user.shopId) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        const { rows: movements } = await pool.query(
+            `SELECT sm.id, sm.type, sm.qty_change, sm.balance_after, sm.note, sm.created_at,
+                    u.name AS user_name, s.receipt_no
+             FROM stock_movements sm
+             LEFT JOIN users u ON u.id = sm.user_id
+             LEFT JOIN sales s ON s.id = sm.sale_id
+             WHERE sm.product_id = $1
+             ORDER BY sm.created_at DESC, sm.id DESC`,
+            [req.params.id]
+        );
+
+        const totalAdded = movements.reduce((sum, m) => sum + (m.qty_change > 0 ? m.qty_change : 0), 0);
+        const totalSold  = movements.reduce((sum, m) => sum + (m.type === 'sale' ? -m.qty_change : 0), 0);
+
+        res.json({ current: product.quantity, totalAdded, totalSold, movements });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // POST /api/products  (Admin, Manager, Stock Manager can add; cost_price is ignored unless Admin)
 router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
     const { name, category, brand, selling_price, quantity, icon, commission } = req.body;
@@ -115,6 +148,13 @@ router.post('/', verifyToken, requireRole(...STOCK_ROLES), async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
             [name, category || null, brand || null, cost_price, selling_price || 0, quantity || 0, icon || '📦', shop_id, commission || 0, commission_user_id]
         );
+        if (quantity) {
+            await pool.query(
+                `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id)
+                 VALUES ($1, 'initial', $2, $2, 'Initial stock on product creation', $3)`,
+                [rows[0].id, quantity, req.user.id]
+            );
+        }
         logActivity(req, 'create', 'product', rows[0].id, `Added product "${name}"`);
         res.status(201).json(hideCost(rows[0], req.user.role));
     } catch (err) {
@@ -220,11 +260,18 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
     try {
         await client.query('BEGIN');
         for (const p of toImport) {
-            await client.query(
+            const { rows: inserted } = await client.query(
                 `INSERT INTO products (name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
                 [p.name, p.category, p.brand, p.cost_price, p.selling_price, p.quantity, p.icon, shop_id, p.commission]
             );
+            if (p.quantity) {
+                await client.query(
+                    `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id)
+                     VALUES ($1, 'initial', $2, $2, 'Initial stock from file import', $3)`,
+                    [inserted[0].id, p.quantity, req.user.id]
+                );
+            }
         }
         await client.query('COMMIT');
         logActivity(req, 'create', 'product', null, `Imported ${toImport.length} product(s) from file`);
@@ -248,12 +295,28 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
         await client.query('BEGIN');
 
+        const { rows: beforeRows } = await client.query('SELECT quantity FROM products WHERE id=$1 FOR UPDATE', [req.params.id]);
+        if (!beforeRows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
+        const oldQty = beforeRows[0].quantity;
+
         const { rows } = await client.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
              selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9, commission_user_id=$10 WHERE id=$11 RETURNING *`,
             [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
         );
         if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
+
+        // Log any quantity change made via this edit (a restock, or a manual correction)
+        // so the stock history shows where every unit came from, not just the live count.
+        const newQty = quantity || 0;
+        const qtyDelta = newQty - oldQty;
+        if (qtyDelta !== 0) {
+            await client.query(
+                `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id)
+                 VALUES ($1, $2, $3, $4, 'Adjusted via product edit', $5)`,
+                [req.params.id, qtyDelta > 0 ? 'restock' : 'adjustment', qtyDelta, newQty, req.user.id]
+            );
+        }
 
         // Backfill: apply the (possibly new) cost price and commission rate/owner to
         // this product's existing sales too, not just future ones — so a cost price
