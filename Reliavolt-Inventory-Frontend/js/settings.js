@@ -45,12 +45,25 @@ function applyThemeHighlight(theme) {
 }
 
 // ===== SAVE SETTINGS =====
+// Theme is a personal, per-browser preference (stored in localStorage, read by every
+// page's own bootstrap script) — every role can save it. Company name/currency/receipt
+// footer are shared, business-wide config and stay Admin-only, matching PUT /api/settings
+// on the backend. A non-Admin never sees that card (hidden via nav-admin) and this never
+// calls the Admin-gated endpoint for them, so there's nothing left to be "access denied".
 async function saveSettingsForm() {
-    const company_name    = document.getElementById('settingCompanyName').value.trim()   || 'Reliavolt Supply';
+    const checkedRadio = document.querySelector('input[name="theme"]:checked');
+    const theme         = checkedRadio ? checkedRadio.value : 'light';
+
+    if (!isAdmin()) {
+        localStorage.setItem('rv_theme', theme);
+        applyTheme();
+        showToast('Appearance saved!', 'success');
+        return;
+    }
+
+    const company_name   = document.getElementById('settingCompanyName').value.trim()   || 'Reliavolt Supply';
     const currency        = document.getElementById('settingCurrency').value              || 'Le';
     const receipt_footer  = document.getElementById('settingReceiptFooter').value.trim() || 'Thank you for your business!';
-    const checkedRadio    = document.querySelector('input[name="theme"]:checked');
-    const theme           = checkedRadio ? checkedRadio.value : 'light';
 
     try {
         await api.put('/api/settings', { company_name, currency, receipt_footer, theme });
