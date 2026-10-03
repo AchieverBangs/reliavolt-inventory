@@ -67,7 +67,7 @@
 }
 
 .amount-label { opacity: 0.8; }
-.amount-value { font-weight: 600; }
+.amount-value { font-family: var(--font-mono); font-weight: 600; }
 
 .amount-row.total-row {
     border-top: 1px solid rgba(255,255,255,0.2);

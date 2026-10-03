@@ -53,12 +53,12 @@
     margin-top: 0.1rem;
 }
 
-.price-cell { font-weight: 600; color: var(--text); }
-.profit-cell { color: #16a34a; font-weight: 600; }
+.price-cell { font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+.profit-cell { font-family: var(--font-mono); color: #16a34a; font-weight: 600; }
 
 .action-cell { display: flex; gap: 0.4rem; align-items: center; }
 
-.qty-cell { font-weight: 700; font-size: 0.95rem; }
+.qty-cell { font-family: var(--font-mono); font-weight: 700; font-size: 0.95rem; }
 
 /* ===== STOCK STATUS ===== */
 .stock-in { color: #16a34a; }
