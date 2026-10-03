@@ -163,6 +163,14 @@ router.post('/:id/credit-payments', verifyToken, requireRole('Admin', 'Manager',
              FOR UPDATE`,
             [customer.id]
         );
+        const { rows: payment } = await client.query(
+            `INSERT INTO credit_payments (customer_id, amount, note, shop_id, user_id, paid_at)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [customer.id, amt, note || null, customer.shop_id, req.user.id, paidAt]
+        );
+
+        // Record exactly which sale(s) this payment paid down, and by how much, so it
+        // can later be reversed precisely (see DELETE /:id/credit-payments/:paymentId).
         let remaining = amt;
         for (const sale of openSales) {
             if (remaining <= 0) break;
@@ -170,19 +178,67 @@ router.post('/:id/credit-payments', verifyToken, requireRole('Admin', 'Manager',
             const apply = Math.min(remaining, owed);
             if (apply > 0) {
                 await client.query('UPDATE sales SET credit_amount_paid = credit_amount_paid + $1 WHERE id = $2', [apply, sale.id]);
+                await client.query(
+                    'INSERT INTO credit_payment_allocations (payment_id, sale_id, amount) VALUES ($1, $2, $3)',
+                    [payment[0].id, sale.id, apply]
+                );
                 remaining -= apply;
             }
         }
 
-        const { rows: payment } = await client.query(
-            `INSERT INTO credit_payments (customer_id, amount, note, shop_id, user_id, paid_at)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [customer.id, amt, note || null, customer.shop_id, req.user.id, paidAt]
-        );
-
         await client.query('COMMIT');
         logActivity(req, 'create', 'credit_payment', payment[0].id, `Recorded Le ${amt} credit payment from "${customer.name}"`);
         res.status(201).json({ payment: payment[0], newBalance });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE /api/customers/:id/credit-payments/:paymentId — reverse a payment, present or
+// previous: gives each sale it had paid down back its credit_amount_paid (so
+// earned_commission recomputes back down too, undoing any commission it had released),
+// restores the customer's credit_balance, and removes the payment. Manager is restricted
+// to their own shop, same as the Credit sale delete permission in sales.js.
+router.delete('/:id/credit-payments/:paymentId', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: cRows } = await client.query('SELECT id, name, shop_id, credit_balance FROM customers WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const customer = cRows[0];
+        if (!customer) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Customer not found' }); }
+        if (req.user.role !== 'Admin' && customer.shop_id !== req.user.shopId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'You can only reverse payments for customers from your own shop' });
+        }
+
+        const { rows: payRows } = await client.query(
+            'SELECT * FROM credit_payments WHERE id = $1 AND customer_id = $2 FOR UPDATE',
+            [req.params.paymentId, customer.id]
+        );
+        const payment = payRows[0];
+        if (!payment) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Payment not found' }); }
+
+        const { rows: allocations } = await client.query(
+            'SELECT sale_id, amount FROM credit_payment_allocations WHERE payment_id = $1',
+            [payment.id]
+        );
+        for (const alloc of allocations) {
+            await client.query('UPDATE sales SET credit_amount_paid = credit_amount_paid - $1 WHERE id = $2', [alloc.amount, alloc.sale_id]);
+        }
+        await client.query('DELETE FROM credit_payment_allocations WHERE payment_id = $1', [payment.id]);
+
+        const newBalance = parseFloat(customer.credit_balance) + parseFloat(payment.amount);
+        await client.query('UPDATE customers SET credit_balance = $1 WHERE id = $2', [newBalance, customer.id]);
+        await client.query('DELETE FROM credit_payments WHERE id = $1', [payment.id]);
+
+        await client.query('COMMIT');
+        logActivity(req, 'delete', 'credit_payment', payment.id, `Reversed Le ${payment.amount} credit payment from "${customer.name}"`);
+        res.json({ message: 'Payment reversed', newBalance });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(err);

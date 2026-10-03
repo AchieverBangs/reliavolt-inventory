@@ -150,6 +150,74 @@ CREATE TABLE IF NOT EXISTS credit_payments (
 );
 CREATE INDEX IF NOT EXISTS idx_credit_payments_customer ON credit_payments(customer_id, paid_at DESC);
 
+-- Exactly which sale(s) each payment paid down, and by how much — recorded at payment
+-- time (see POST /api/customers/:id/credit-payments) so a payment can later be reversed
+-- precisely: give each affected sale's credit_amount_paid back, rather than guessing.
+CREATE TABLE IF NOT EXISTS credit_payment_allocations (
+    id          SERIAL PRIMARY KEY,
+    payment_id  INTEGER NOT NULL REFERENCES credit_payments(id) ON DELETE CASCADE,
+    sale_id     INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    amount      NUMERIC(14,2) NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_credit_payment_allocations_payment ON credit_payment_allocations(payment_id);
+
+-- One-time backfill (safe to rerun — only touches customers with zero allocation rows so
+-- far) for payments recorded before this table existed: replays each customer's credit
+-- sales and payments in the same chronological, oldest-sale-first order the live code
+-- already applies them in, so it reconstructs exactly how each past payment was really
+-- split across sales, letting a payment made before this feature shipped still be
+-- reversed precisely.
+DO $$
+DECLARE
+    cust RECORD;
+    pay RECORD;
+    sale RECORD;
+    remaining NUMERIC;
+    apply NUMERIC;
+BEGIN
+    CREATE TEMP TABLE IF NOT EXISTS _credit_backfill_cap (sale_id INTEGER PRIMARY KEY, cap NUMERIC);
+
+    FOR cust IN
+        SELECT DISTINCT cp.customer_id
+        FROM credit_payments cp
+        WHERE NOT EXISTS (
+            SELECT 1 FROM credit_payment_allocations cpa
+            JOIN credit_payments cp2 ON cp2.id = cpa.payment_id
+            WHERE cp2.customer_id = cp.customer_id
+        )
+    LOOP
+        DELETE FROM _credit_backfill_cap;
+        INSERT INTO _credit_backfill_cap (sale_id, cap)
+            SELECT id, credit_amount FROM sales WHERE customer_id = cust.customer_id AND credit_amount > 0;
+
+        FOR pay IN
+            SELECT id, amount FROM credit_payments
+            WHERE customer_id = cust.customer_id
+            ORDER BY paid_at ASC, id ASC
+        LOOP
+            remaining := pay.amount;
+            FOR sale IN
+                SELECT s.id AS sale_id, c.cap AS cap
+                FROM _credit_backfill_cap c
+                JOIN sales s ON s.id = c.sale_id
+                WHERE c.cap > 0
+                ORDER BY s.sale_date ASC, s.id ASC
+            LOOP
+                IF remaining <= 0 THEN EXIT; END IF;
+                apply := LEAST(remaining, sale.cap);
+                IF apply > 0 THEN
+                    INSERT INTO credit_payment_allocations (payment_id, sale_id, amount) VALUES (pay.id, sale.sale_id, apply);
+                    UPDATE _credit_backfill_cap SET cap = cap - apply WHERE sale_id = sale.sale_id;
+                    remaining := remaining - apply;
+                END IF;
+            END LOOP;
+        END LOOP;
+    END LOOP;
+
+    DROP TABLE IF EXISTS _credit_backfill_cap;
+END $$;
+
 -- Full audit trail of every quantity change for a product — initial stock on creation,
 -- restocks/adjustments made via product edit, and deductions from each sale. A single
 -- "quantity" column can only ever show what's left right now; this answers "how much did

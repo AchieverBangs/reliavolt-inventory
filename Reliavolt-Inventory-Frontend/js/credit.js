@@ -2,6 +2,7 @@
 let _creditCustomers = [];
 let _activePaymentCustomerId = null;
 let _activeHistoryData = null; // { customer, timeline } for the currently-open history modal, used by printCreditHistory()
+let _activeHistoryCustomerId = null;
 
 // ===== RENDER =====
 function renderCreditTable(filter = '') {
@@ -103,40 +104,71 @@ async function openCreditHistory(id) {
     const customer = _creditCustomers.find(c => c.id === id);
     if (!customer) return;
 
+    _activeHistoryCustomerId = id;
     setEl('historyCustName', customer.name);
     setEl('historyCustBalance', formatCurrency(customer.credit_balance));
     const tbody = document.getElementById('creditHistoryBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="4">Loading...</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5">Loading...</td></tr>`;
     openModal('creditHistoryModal');
     _activeHistoryData = null;
 
     try {
         const data = await api.get(`/api/customers/${id}/credit-history`);
         _activeHistoryData = { customer: data.customer, timeline: data.timeline };
-        if (!tbody) return;
-        if (!data.timeline.length) {
-            tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">📒</span><p>No credit history.</p></div></td></tr>`;
-            return;
-        }
-        tbody.innerHTML = data.timeline.map(entry => {
-            if (entry.type === 'sale') {
-                return `<tr>
-                    <td>${formatDateTime(entry.at)}</td>
-                    <td><span class="badge badge-warning">Credit Sale</span></td>
-                    <td>${escHtml(entry.product_name)} &times; ${entry.qty} <span style="color:var(--text-light);">(${escHtml(entry.receipt_no)})</span></td>
-                    <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
-                </tr>`;
-            }
+        renderCreditHistoryBody();
+    } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5">Failed to load history: ${escHtml(err.message)}</td></tr>`;
+    }
+}
+
+function renderCreditHistoryBody() {
+    const tbody = document.getElementById('creditHistoryBody');
+    if (!tbody || !_activeHistoryData) return;
+    const { timeline } = _activeHistoryData;
+
+    if (!timeline.length) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📒</span><p>No credit history.</p></div></td></tr>`;
+        return;
+    }
+
+    const role = getCurrentUserRole();
+    const canReverse = role === 'Admin' || role === 'Manager';
+
+    tbody.innerHTML = timeline.map(entry => {
+        if (entry.type === 'sale') {
             return `<tr>
                 <td>${formatDateTime(entry.at)}</td>
-                <td><span class="badge badge-success">Payment</span></td>
-                <td>${escHtml(entry.note || '—')} <span style="color:var(--text-light);">by ${escHtml(entry.recorded_by || 'Unknown')}</span></td>
-                <td style="color:#16a34a;">&minus;${formatCurrency(entry.amount)}</td>
+                <td><span class="badge badge-warning">Credit Sale</span></td>
+                <td>${escHtml(entry.product_name)} &times; ${entry.qty} <span style="color:var(--text-light);">(${escHtml(entry.receipt_no)})</span></td>
+                <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
+                <td>—</td>
             </tr>`;
-        }).join('');
-    } catch (err) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="4">Failed to load history: ${escHtml(err.message)}</td></tr>`;
-    }
+        }
+        return `<tr>
+            <td>${formatDateTime(entry.at)}</td>
+            <td><span class="badge badge-success">Payment</span></td>
+            <td>${escHtml(entry.note || '—')} <span style="color:var(--text-light);">by ${escHtml(entry.recorded_by || 'Unknown')}</span></td>
+            <td style="color:#16a34a;">&minus;${formatCurrency(entry.amount)}</td>
+            <td>${canReverse ? `<button class="btn btn-danger btn-sm" onclick="reversePayment(${entry.id})">↩️ Reverse</button>` : '—'}</td>
+        </tr>`;
+    }).join('');
+}
+
+// Reversing works the same whether the payment was made moments ago or months ago —
+// the backend replays exactly which sale(s) it paid down (see credit_payment_allocations
+// in schema.sql) and gives each one's credit_amount_paid back.
+function reversePayment(paymentId) {
+    if (!_activeHistoryCustomerId) return;
+    showConfirm('Reverse Payment', 'Undo this payment? The amount will be added back to the customer\'s balance and any commission it had released will be taken back. This cannot be undone.', async () => {
+        try {
+            await api.delete(`/api/customers/${_activeHistoryCustomerId}/credit-payments/${paymentId}`);
+            showToast('Payment reversed.', 'success');
+            await openCreditHistory(_activeHistoryCustomerId);
+            await reloadCreditCustomers();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    });
 }
 
 // Builds a letterhead + the customer's full credit timeline into a hidden print target,
