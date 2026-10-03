@@ -21,6 +21,18 @@ const askLimiter = rateLimit({
 const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const MODEL = process.env.AI_QUERY_MODEL || 'claude-haiku-4-5';
 
+// GET /api/ai/status — reveals nothing sensitive (no key value, just whether one is
+// present and roughly well-formed), so it's safe without auth. Lets a deploy be checked
+// directly instead of guessing from the Railway dashboard.
+router.get('/status', (req, res) => {
+    const key = process.env.ANTHROPIC_API_KEY || '';
+    res.json({
+        configured: !!client,
+        keyLength: key.length,
+        looksLikeAnthropicKey: key.startsWith('sk-ant-'),
+    });
+});
+
 // ===== TOOLS — each is a narrow, parameterized query. Claude picks which to call and
 // with what arguments, but shop-scoping and cost/profit visibility are enforced here in
 // code from the caller's real role/shop, never from anything Claude sends — so a question
