@@ -61,8 +61,59 @@ function appendAiChatMessage(text, cls) {
     el.className = `ai-chat-msg ${cls}`;
     el.textContent = text;
     box.appendChild(el);
+
+    // Any real answer (not a loading/error flicker) can be saved as a PDF via the
+    // browser's own print dialog — the same mechanism the Reports page already uses,
+    // so no new library or backend work is needed for this.
+    if (cls === 'ai-chat-msg-bot' || cls === 'ai-chat-msg-update') {
+        const printBtn = document.createElement('button');
+        printBtn.type = 'button';
+        printBtn.className = 'ai-chat-print-btn';
+        printBtn.textContent = '🖨️ Save as PDF';
+        printBtn.addEventListener('click', () => printAiChatMessage(text));
+        box.appendChild(printBtn);
+    }
+
     box.scrollTop = box.scrollHeight;
     return el;
+}
+
+function escapeHtmlLocal(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Builds a letterhead + the message text into a hidden print target, triggers the
+// browser's print dialog ("Save as PDF" is one of its destinations), then cleans up.
+function printAiChatMessage(text) {
+    const area = document.createElement('div');
+    area.id = 'aiChatPrintArea';
+    const generated = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    area.innerHTML = `
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #1a3a8f;">
+            <img src="images/logo.svg" alt="Reliavolt Supply" style="width:60px;height:60px;object-fit:contain;">
+            <div>
+                <strong style="font-size:1.15rem;color:#1a3a8f;display:block;">Reliavolt Supply</strong>
+                <span style="font-size:0.82rem;color:#dc2626;">"We Go For Value" &mdash; Ask Reliavolt</span>
+            </div>
+        </div>
+        <div style="font-size:0.78rem;color:#64748b;margin-bottom:1rem;">Generated ${generated}</div>
+        <div style="white-space:pre-wrap;line-height:1.6;color:#1e293b;font-size:0.95rem;">${escapeHtmlLocal(text)}</div>
+    `;
+    document.body.appendChild(area);
+    document.body.classList.add('ai-printing');
+
+    let cleaned = false;
+    const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        document.body.classList.remove('ai-printing');
+        area.remove();
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(cleanup, 15000); // safety net for browsers that don't fire afterprint
+
+    window.print();
 }
 
 async function sendAiChatMessage(e) {

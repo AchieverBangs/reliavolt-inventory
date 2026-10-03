@@ -1066,6 +1066,25 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     .ai-chat-bubble, .ai-chat-panel { display: none !important; }
 }
 
+/* Printing a single AI chat answer — a temporary #aiChatPrintArea is built and inserted
+   just for this, scoped by a body.ai-printing class so it never interferes with the
+   page's own print rules above. */
+#aiChatPrintArea { display: none; }
+
+@media print {
+    body.ai-printing * { visibility: hidden; }
+    body.ai-printing #aiChatPrintArea,
+    body.ai-printing #aiChatPrintArea * { visibility: visible; }
+    body.ai-printing #aiChatPrintArea {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 2rem;
+    }
+}
+
 .pagination { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.25rem; border-top: 1px solid var(--border); font-size: 0.875rem; flex-wrap: wrap; gap: 0.5rem; }
 .pagination-info { color: var(--text-light); }
 .pagination-controls { display: flex; gap: 0.4rem; flex-wrap: wrap; }
@@ -1157,6 +1176,20 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     border-radius: 10px;
     font-weight: 500;
 }
+
+.ai-chat-print-btn {
+    align-self: flex-start;
+    margin-top: -0.3rem;
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.1rem 0;
+    opacity: 0.7;
+}
+.ai-chat-print-btn:hover { opacity: 1; text-decoration: underline; }
 
 .ai-chat-input-row { display: flex; gap: 0.5rem; padding: 0.75rem; border-top: 1px solid var(--border); flex-shrink: 0; }
 .ai-chat-input-row input {
