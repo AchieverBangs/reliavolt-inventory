@@ -321,6 +321,25 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- "What's new" announcements — a short changelog shown once per staff member, delivered
+-- through the Ask Reliavolt chat widget rather than a separate admin page for now.
+CREATE TABLE IF NOT EXISTS app_updates (
+    id         SERIAL PRIMARY KEY,
+    title      VARCHAR(255) NOT NULL,
+    body       TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Newest update each user has already seen, so an announcement only ever shows once.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_update_id INTEGER NOT NULL DEFAULT 0;
+
+-- First announcement — guarded so it's only ever inserted once, independent of the demo
+-- seed flag above (this should still insert on a real production install).
+INSERT INTO app_updates (title, body)
+SELECT 'Meet Ask Reliavolt — your new AI assistant',
+       'Look for the 🤖 bubble in the bottom-right corner of every page. Ask it things like "how many LED bulbs do we have left" or "what was our revenue last month", or how-to questions like "how do I backdate a sale". Admins can also ask about other shops, staff, and commission settlement status.'
+WHERE NOT EXISTS (SELECT 1 FROM app_updates);
+
 -- ============================================================
 -- Seed Data — runs ONCE only, guarded by settings.seeded.
 -- Without this guard, deleting a demo row would make it reappear

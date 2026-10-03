@@ -3,6 +3,7 @@
 // chat tab) — each message sends the recent history back so follow-up questions like
 // "what about yesterday?" still have context.
 let _aiChatHistory = [];
+let _aiChatUnreadUpdates = [];
 const AI_CHAT_ROLES = ['Admin', 'Manager', 'Cashier', 'Stock Manager'];
 
 function initAiChatWidget() {
@@ -15,10 +16,42 @@ function initAiChatWidget() {
 
     bubble.addEventListener('click', () => {
         panel.classList.toggle('active');
-        if (panel.classList.contains('active')) document.getElementById('aiChatInput')?.focus();
+        if (panel.classList.contains('active')) {
+            document.getElementById('aiChatInput')?.focus();
+            showUnreadUpdatesOnce();
+        }
     });
     document.getElementById('aiChatClose')?.addEventListener('click', () => panel.classList.remove('active'));
     document.getElementById('aiChatForm')?.addEventListener('submit', sendAiChatMessage);
+
+    checkUnreadUpdates();
+}
+
+// "What's new" — a short, one-time announcement delivered through this widget instead of
+// a separate changelog page. A red dot marks the bubble until the panel is opened, at
+// which point the announcement(s) are shown once and marked read for this user.
+async function checkUnreadUpdates() {
+    try {
+        _aiChatUnreadUpdates = await api.get('/api/updates/unread');
+        document.getElementById('aiChatBubble')?.classList.toggle('has-update', _aiChatUnreadUpdates.length > 0);
+    } catch {
+        _aiChatUnreadUpdates = []; // best-effort — never block the chat itself over this
+    }
+}
+
+async function showUnreadUpdatesOnce() {
+    if (!_aiChatUnreadUpdates.length) return;
+    for (const update of _aiChatUnreadUpdates) {
+        appendAiChatMessage(`📢 ${update.title}\n\n${update.body}`, 'ai-chat-msg-update');
+    }
+    const seen = _aiChatUnreadUpdates;
+    _aiChatUnreadUpdates = [];
+    document.getElementById('aiChatBubble')?.classList.remove('has-update');
+    try {
+        await api.post('/api/updates/mark-seen', {});
+    } catch {
+        _aiChatUnreadUpdates = seen; // couldn't confirm server-side — try again next time
+    }
 }
 
 function appendAiChatMessage(text, cls) {
