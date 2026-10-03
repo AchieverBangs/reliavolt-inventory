@@ -36,7 +36,9 @@ function sanitizeHistory(history) {
 }
 
 const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
-const MODEL = process.env.AI_QUERY_MODEL || 'claude-haiku-4-5';
+// Sonnet 5 — stronger reasoning than Haiku for a business assistant that now spans shop
+// comparisons, staff, and commission settlement status, at roughly 2x the cost per question.
+const MODEL = process.env.AI_QUERY_MODEL || 'claude-sonnet-5';
 
 // GET /api/ai/status — reveals nothing sensitive (no key value, just whether one is
 // present and roughly well-formed), so it's safe without auth. Lets a deploy be checked
