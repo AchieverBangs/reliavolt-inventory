@@ -744,7 +744,7 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
 
 .login-brand .slogan {
     font-size: 0.875rem;
-    color: var(--text-light);
+    color: #64748b;
     font-style: italic;
     margin-top: 0.25rem;
 }
@@ -752,10 +752,10 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
 .login-form-title {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--text);
+    color: #0f172a;
     margin-bottom: 1.25rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .input-group {
@@ -763,12 +763,16 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     margin-bottom: 1rem;
 }
 
+/* The login/reset-password card is deliberately always a fixed white card regardless of
+   the app's light/dark theme setting, so every color in here is a fixed value too, never
+   a theme token — otherwise text saved as "dark mode" elsewhere in the app turns light
+   and becomes unreadable against this always-white card. */
 .input-group label {
     display: block;
     margin-bottom: 0.375rem;
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text);
+    font-weight: 700;
+    color: #0f172a;
 }
 
 .input-with-icon { position: relative; }
@@ -778,19 +782,27 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     left: 0.875rem;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-light);
+    color: #64748b;
     font-size: 1rem;
 }
 
 .input-with-icon input {
     width: 100%;
     padding: 0.75rem 0.875rem 0.75rem 2.5rem;
-    border: 1.5px solid var(--border);
+    border: 1.5px solid #e2e8f0;
     border-radius: var(--radius);
-    font-size: 0.95rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     transition: var(--transition);
-    color: var(--text);
-    background: var(--white);
+    color: #0f172a;
+    background: #ffffff;
+}
+
+.input-with-icon input::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+    letter-spacing: normal;
 }
 
 .input-with-icon input:focus {
@@ -839,9 +851,9 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     text-align: center;
     margin-top: 1.75rem;
     padding-top: 1.25rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid #e2e8f0;
     font-size: 0.78rem;
-    color: var(--text-light);
+    color: #64748b;
     line-height: 1.5;
 }
 
@@ -852,7 +864,7 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     border: 1px solid rgba(59,130,246,0.15);
     border-radius: var(--radius);
     font-size: 0.8rem;
-    color: var(--text-light);
+    color: #475569;
     text-align: center;
 }
 
