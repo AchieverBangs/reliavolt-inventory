@@ -127,14 +127,105 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 );
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id, created_at DESC);
 
+-- Correction for the very first version of the backfill below (shipped 2026-09-24): it only
+-- knew each product's CURRENT quantity, so for any product that already had sales before
+-- stock history existed, it logged that leftover amount as if it were the whole original
+-- stock — undercounting "Total Added" and silently dropping those sales from "Total Sold"
+-- entirely. Safe to rerun: once a historical sale has its own movement row (sale_id set),
+-- it's excluded, so this naturally stops finding anything to fix.
+DO $$
+DECLARE
+    prod RECORD;
+    total_historical INTEGER;
+    true_original INTEGER;
+    anchor TIMESTAMP;
+    running_balance INTEGER;
+    sale_rec RECORD;
+BEGIN
+    FOR prod IN
+        SELECT sm.id AS old_movement_id, sm.product_id, sm.qty_change AS old_baseline, sm.created_at AS old_created_at
+        FROM stock_movements sm
+        WHERE sm.note = 'Backfilled — recorded when stock history was added'
+          AND EXISTS (
+              SELECT 1 FROM sales s
+              WHERE s.product_id = sm.product_id
+                AND NOT EXISTS (SELECT 1 FROM stock_movements sm2 WHERE sm2.sale_id = s.id)
+          )
+    LOOP
+        SELECT COALESCE(SUM(s.qty), 0), LEAST(MIN(s.sale_date), prod.old_created_at) - INTERVAL '1 second'
+        INTO total_historical, anchor
+        FROM sales s
+        WHERE s.product_id = prod.product_id
+          AND NOT EXISTS (SELECT 1 FROM stock_movements sm2 WHERE sm2.sale_id = s.id);
+
+        true_original := prod.old_baseline + total_historical;
+
+        -- The old baseline's value was never actually wrong — it came straight from the
+        -- product's real quantity at the time, so every later real movement's balance
+        -- (computed from that same live quantity, independent of this ledger) is still
+        -- correct as-is. Only its label was wrong: it's a mid-history balance, not the
+        -- true starting point. Replace it outright instead of shifting anything downstream.
+        DELETE FROM stock_movements WHERE id = prod.old_movement_id;
+
+        INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, created_at)
+        VALUES (prod.product_id, 'initial', true_original, true_original,
+                'Backfilled — recorded when stock history was added', anchor);
+
+        running_balance := true_original;
+        FOR sale_rec IN
+            SELECT s.id, s.qty, s.sale_date, s.receipt_no, s.user_id
+            FROM sales s
+            WHERE s.product_id = prod.product_id
+              AND NOT EXISTS (SELECT 1 FROM stock_movements sm2 WHERE sm2.sale_id = s.id)
+            ORDER BY s.sale_date ASC, s.id ASC
+        LOOP
+            running_balance := running_balance - sale_rec.qty;
+            INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id, created_at)
+            VALUES (prod.product_id, 'sale', -sale_rec.qty, running_balance,
+                    'Sold via receipt ' || sale_rec.receipt_no, sale_rec.user_id, sale_rec.id, sale_rec.sale_date);
+        END LOOP;
+    END LOOP;
+END $$;
+
 -- One-time backfill (safe to rerun — only touches products with zero movement rows so
--- far): products added before stock history existed get a synthetic 'initial' entry
--- equal to their current quantity, so their history isn't blank.
-INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, created_at)
-SELECT p.id, 'initial', p.quantity, p.quantity, 'Backfilled — recorded when stock history was added', p.created_at
-FROM products p
-WHERE p.quantity > 0
-  AND NOT EXISTS (SELECT 1 FROM stock_movements sm WHERE sm.product_id = p.id);
+-- far): a product's true original stock is its current quantity plus every sale it has
+-- ever had (since any sale predating this feature was never logged as a movement), so
+-- this reconstructs the full history — the initial amount, then one 'sale' movement per
+-- historical sale with a correct running balance — instead of just the leftover quantity.
+DO $$
+DECLARE
+    prod RECORD;
+    total_historical INTEGER;
+    true_original INTEGER;
+    running_balance INTEGER;
+    sale_rec RECORD;
+BEGIN
+    FOR prod IN
+        SELECT p.id AS product_id, p.quantity AS current_qty, p.created_at AS product_created_at
+        FROM products p
+        WHERE NOT EXISTS (SELECT 1 FROM stock_movements sm WHERE sm.product_id = p.id)
+    LOOP
+        SELECT COALESCE(SUM(s.qty), 0) INTO total_historical FROM sales s WHERE s.product_id = prod.product_id;
+        true_original := prod.current_qty + total_historical;
+        IF true_original = 0 THEN CONTINUE; END IF;
+
+        INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, created_at)
+        VALUES (prod.product_id, 'initial', true_original, true_original,
+                'Backfilled — recorded when stock history was added', prod.product_created_at);
+
+        running_balance := true_original;
+        FOR sale_rec IN
+            SELECT s.id, s.qty, s.sale_date, s.receipt_no, s.user_id
+            FROM sales s WHERE s.product_id = prod.product_id
+            ORDER BY s.sale_date ASC, s.id ASC
+        LOOP
+            running_balance := running_balance - sale_rec.qty;
+            INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id, created_at)
+            VALUES (prod.product_id, 'sale', -sale_rec.qty, running_balance,
+                    'Sold via receipt ' || sale_rec.receipt_no, sale_rec.user_id, sale_rec.id, sale_rec.sale_date);
+        END LOOP;
+    END LOOP;
+END $$;
 
 -- One row per (staff member, month) once that month's commission has been settled.
 -- staff_confirmed_at = the earner says they received it; admin_confirmed_at = an Admin
