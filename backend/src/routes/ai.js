@@ -245,6 +245,7 @@ async function runTool(name, input, req) {
                         COALESCE(SUM(profit), 0) AS total_profit
                  FROM sales
                  WHERE sale_date >= $1 AND sale_date < ($2::date + INTERVAL '1 day')
+                   AND credit_amount <= credit_amount_paid
                    AND ($3::int IS NULL OR shop_id = $3)
                    AND ($4::text IS NULL OR product_name ILIKE $4)`,
                 [input.from, input.to, shopId, input.product_name ? `%${input.product_name}%` : null]
@@ -260,6 +261,7 @@ async function runTool(name, input, req) {
                 `SELECT product_name, SUM(qty)::int AS qty_sold, SUM(total) AS revenue
                  FROM sales
                  WHERE sale_date >= $1 AND sale_date < ($2::date + INTERVAL '1 day')
+                   AND credit_amount <= credit_amount_paid
                    AND ($3::int IS NULL OR shop_id = $3)
                  GROUP BY product_name
                  ORDER BY qty_sold DESC

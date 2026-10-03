@@ -31,11 +31,15 @@ function parseSaleDate(sale_date, keepTimeFrom = new Date()) {
 }
 
 // GET /api/sales  (optional ?from=&to=&product_id=&payment_method= filters; non-Admins scoped to their own shop)
+// A Credit sale with a balance still outstanding is deliberately left out — it isn't a
+// "sale" yet in the revenue sense, it's still just a tab the customer owes. It only shows
+// up here once credit_amount_paid catches up to credit_amount; until then it lives only
+// on the Credit page, so it can't double up in Sales/Dashboard/Reports totals.
 router.get('/', verifyToken, async (req, res) => {
     try {
         let query  = 'SELECT * FROM sales';
         const vals = [];
-        const conditions = [];
+        const conditions = ['credit_amount <= credit_amount_paid'];
 
         if (req.query.from)           { vals.push(req.query.from);           conditions.push(`sale_date >= $${vals.length}`); }
         if (req.query.to)             { vals.push(req.query.to);             conditions.push(`sale_date <= $${vals.length}`); }

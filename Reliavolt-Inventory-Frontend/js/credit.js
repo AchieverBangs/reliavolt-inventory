@@ -141,7 +141,7 @@ function renderCreditHistoryBody() {
                 <td><span class="badge badge-warning">Credit Sale</span></td>
                 <td>${escHtml(entry.product_name)} &times; ${entry.qty} <span style="color:var(--text-light);">(${escHtml(entry.receipt_no)})</span></td>
                 <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
-                <td>—</td>
+                <td>${canReverse ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : '—'}</td>
             </tr>`;
         }
         return `<tr>
@@ -163,6 +163,23 @@ function reversePayment(paymentId) {
         try {
             await api.delete(`/api/customers/${_activeHistoryCustomerId}/credit-payments/${paymentId}`);
             showToast('Payment reversed.', 'success');
+            await openCreditHistory(_activeHistoryCustomerId);
+            await reloadCreditCustomers();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    });
+}
+
+// A credit sale no longer shows up on the Sales page while it's still owed — this
+// is the only place left to undo one entered by mistake (wrong customer/amount), so it
+// reuses the same sales.js delete endpoint the Sales page used to expose for this.
+function deleteCreditSale(saleId) {
+    if (!_activeHistoryCustomerId) return;
+    showConfirm('Delete Credit Sale', 'Permanently delete this credit sale? Any amount still owed on it will be removed from the customer\'s balance. This cannot be undone.', async () => {
+        try {
+            await api.delete(`/api/sales/${saleId}`);
+            showToast('Credit sale deleted.', 'success');
             await openCreditHistory(_activeHistoryCustomerId);
             await reloadCreditCustomers();
         } catch (err) {
