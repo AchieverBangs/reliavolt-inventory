@@ -2,6 +2,7 @@ const express  = require('express');
 const cors     = require('cors');
 const helmet   = require('helmet');
 
+const { requireWrite }  = require('./middleware/auth');
 const authRouter       = require('./routes/auth');
 const productsRouter   = require('./routes/products');
 const salesRouter      = require('./routes/sales');
@@ -44,7 +45,12 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'Reliavolt Supply API' }));
 
 // Routes
-app.use('/api/auth',       authRouter);
+app.use('/api/auth', authRouter); // mounted first, so a login/password request never hits requireWrite below
+
+// Global write gate — a user with can_write off can still reach every GET route past
+// this point, just not any create/edit/delete. See requireWrite in middleware/auth.js.
+app.use(requireWrite);
+
 app.use('/api/products',   productsRouter);
 app.use('/api/sales',      salesRouter);
 app.use('/api/customers',  customersRouter);

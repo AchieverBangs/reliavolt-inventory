@@ -210,6 +210,7 @@ async function saveUser() {
         closeModal('userModal');
         renderUserStats();
         renderUserTable();
+        renderWriteAccess();
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -268,10 +269,52 @@ async function deleteUser(id) {
             showToast(`${user.name} has been removed.`, 'warning');
             renderUserStats();
             renderUserTable();
+            renderWriteAccess();
         } catch (err) {
             showToast(err.message, 'error');
         }
     });
+}
+
+// ===== WRITE ACCESS =====
+function renderWriteAccess() {
+    const tbody = document.getElementById('writeAccessBody');
+    if (!tbody) return;
+
+    const rows = _users.filter(u => u.role !== 'Admin');
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">✍️</span><p>No non-Admin users yet.</p></div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(u => {
+        const shop = u.shop_id ? _shops.find(s => s.id === u.shop_id) : null;
+        const checked = u.can_write !== false;
+        return `<tr>
+            <td><strong>${escHtml(u.name)}</strong> <span style="color:var(--text-light);">@${escHtml(u.username)}</span></td>
+            <td><span class="role-badge ${ROLE_BADGE_CLASS[u.role] || 'role-cashier'}">${escHtml(u.role)}</span></td>
+            <td>${shop ? escHtml(shop.name) : 'All Shops'}</td>
+            <td>
+                <label class="toggle-switch" title="${checked ? 'Write access on — click to turn off' : 'Write access off — click to turn on'}">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleWriteAccess(${u.id}, this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function toggleWriteAccess(id, canWrite) {
+    const user = _users.find(u => u.id === id);
+    if (!user) return;
+    try {
+        await api.patch(`/api/users/${id}/write`, { can_write: canWrite });
+        user.can_write = canWrite;
+        showToast(`Write access ${canWrite ? 'enabled' : 'disabled'} for ${user.name}.`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+        renderWriteAccess(); // revert the toggle's visual state on failure
+    }
 }
 
 // ===== LOGIN HISTORY =====
@@ -331,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderUserStats();
     renderUserTable();
+    renderWriteAccess();
     renderLoginHistory();
 
     if (hash === 'active' || hash === 'inactive' || hash === 'usersGrid') {

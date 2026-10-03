@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
         const { rows } = await pool.query(
-            'SELECT id, name, username, email, role, shop_id, status, created_at, last_login FROM users ORDER BY name'
+            'SELECT id, name, username, email, role, shop_id, status, can_write, created_at, last_login FROM users ORDER BY name'
         );
         res.json(rows);
     } catch (err) {
@@ -85,6 +85,29 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         res.json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// PATCH /api/users/:id/write  { can_write: true|false }  (Admin only)
+// A one-switch toggle, separate from the full edit form, for the Write Access table —
+// Admin can't be targeted (the write gate exempts Admin regardless, so there'd be
+// nothing to toggle).
+router.patch('/:id/write', verifyToken, requireRole('Admin'), async (req, res) => {
+    const canWrite = !!req.body.can_write;
+    try {
+        const { rows: existing } = await pool.query('SELECT username, role FROM users WHERE id = $1', [req.params.id]);
+        if (!existing[0]) return res.status(404).json({ error: 'User not found' });
+        if (existing[0].role === 'Admin') return res.status(400).json({ error: 'Admin always has write access — there is nothing to toggle' });
+
+        const { rows } = await pool.query(
+            'UPDATE users SET can_write = $1 WHERE id = $2 RETURNING id, can_write',
+            [canWrite, req.params.id]
+        );
+        logActivity(req, 'update', 'user', rows[0].id, `${canWrite ? 'Enabled' : 'Disabled'} write access for "${existing[0].username}"`);
+        res.json(rows[0]);
+    } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }

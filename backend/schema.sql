@@ -29,6 +29,14 @@ CREATE TABLE IF NOT EXISTS users (
 -- Login audit trail (Admin can see every user's login times)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
 
+-- A simple global on/off for whether this user can create/edit/delete anything (see
+-- requireWrite in middleware/auth.js) — they can still view every page while off, just
+-- not change anything. Checked fresh on every request rather than baked into the login
+-- token, so flipping it takes effect immediately, not just next login. Admin is always
+-- exempt (this is Admin's own tool for managing everyone else, not a way to accidentally
+-- lock themselves out).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_write BOOLEAN NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS login_history (
     id       SERIAL PRIMARY KEY,
     user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
