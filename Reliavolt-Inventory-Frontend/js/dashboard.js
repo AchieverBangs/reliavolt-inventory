@@ -63,6 +63,88 @@ async function renderProductsByShop() {
     }
 }
 
+// ===== SALES BY SHOP (Admin only) =====
+// Click a shop to see its total sales for the selected month/year — computed straight
+// from _sales (already loaded for the dashboard), no extra request needed. Month/Year
+// filters already exclude unpaid Credit sales the same way the rest of the app does,
+// since _sales comes from GET /api/sales.
+let _selectedSalesShopId = null;
+
+function initSalesByShopFilters() {
+    const yearSel = document.getElementById('salesByShopYearFilter');
+    if (!yearSel || yearSel.options.length) return; // already populated
+
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= currentYear - 4; y--) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSel.appendChild(opt);
+    }
+    yearSel.value = currentYear;
+
+    document.getElementById('salesByShopMonthFilter')?.addEventListener('change', renderSalesByShopResult);
+    yearSel.addEventListener('change', renderSalesByShopResult);
+}
+
+function renderSalesByShopButtons() {
+    const box = document.getElementById('salesByShopButtons');
+    if (!box) return;
+
+    if (!_shops.length) {
+        box.innerHTML = `<span style="color:var(--text-light);">No shops found.</span>`;
+        return;
+    }
+
+    box.innerHTML = _shops.map(s => {
+        const active = s.id === _selectedSalesShopId;
+        return `<button type="button" class="btn ${active ? 'btn-primary' : 'btn-secondary'} btn-sm" data-shop-btn="${s.id}">${escHtml(s.name)}</button>`;
+    }).join('');
+
+    box.querySelectorAll('[data-shop-btn]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _selectedSalesShopId = Number(btn.dataset.shopBtn);
+            renderSalesByShopButtons();
+            renderSalesByShopResult();
+        });
+    });
+}
+
+function renderSalesByShopResult() {
+    const result = document.getElementById('salesByShopResult');
+    if (!result) return;
+
+    if (!_selectedSalesShopId) {
+        result.innerHTML = `<span style="color:var(--text-light);">Click a shop above to see its total sales.</span>`;
+        return;
+    }
+
+    const year  = document.getElementById('salesByShopYearFilter')?.value || '';
+    const month = document.getElementById('salesByShopMonthFilter')?.value || '';
+    const shop  = _shops.find(s => s.id === _selectedSalesShopId);
+
+    const filtered = _sales.filter(s => {
+        if (s.shop_id !== _selectedSalesShopId) return false;
+        const d = new Date(s.sale_date);
+        if (year && d.getFullYear() !== Number(year)) return false;
+        if (month && (d.getMonth() + 1) !== Number(month)) return false;
+        return true;
+    });
+    const total = filtered.reduce((sum, s) => sum + Number(s.total), 0);
+    const label = month ? `${MONTH_NAMES[Number(month) - 1]} ${year}` : (year ? `All of ${year}` : 'All Time');
+
+    result.innerHTML = `<strong>${escHtml(shop?.name || '—')}</strong> — ${escHtml(label)}: ` +
+        `<span style="color:var(--primary);font-weight:700;font-size:1.3rem;">${formatCurrency(total)}</span> ` +
+        `<span style="color:var(--text-light);font-size:0.85rem;">(${filtered.length} sale${filtered.length !== 1 ? 's' : ''})</span>`;
+}
+
+function renderSalesByShop() {
+    if (!isAdmin()) return;
+    initSalesByShopFilters();
+    renderSalesByShopButtons();
+    renderSalesByShopResult();
+}
+
 // ===== COMMISSION (Admin/Manager/Cashier) =====
 const ROLE_BADGE_CLASS = {
     Admin: 'role-admin', Manager: 'role-manager', Cashier: 'role-cashier',
@@ -600,6 +682,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDashboardStats();
         renderRecentSalesList();
         renderLowStockTable();
+        renderSalesByShop();
         renderProductsByShop();
         renderCommission();
         checkPendingCommissionConfirmations().then(showedPersonal => {
