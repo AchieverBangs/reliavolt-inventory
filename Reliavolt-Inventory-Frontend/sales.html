@@ -285,6 +285,14 @@
                             <span class="search-icon">🔍</span>
                             <input type="text" id="salesByProductSearch" placeholder="Search a product, e.g. V90...">
                         </div>
+                        <label class="form-label" style="margin:0;">From</label>
+                        <input type="date" class="form-control" id="salesByProductFrom" style="max-width:150px;">
+                        <label class="form-label" style="margin:0;">To</label>
+                        <input type="date" class="form-control" id="salesByProductTo" style="max-width:150px;">
+                        <select class="form-control nav-admin hidden" id="salesByProductShop" style="max-width:170px;">
+                            <option value="">All Shops</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" id="clearSalesByProductFilterBtn">Clear</button>
                     </div>
                 </div>
                 <div class="card">

@@ -9,6 +9,10 @@ const SALES_PER_PAGE = 10;
 let salesPage = 1;
 let salesDateFilter = '';
 
+let salesByProductFrom   = '';
+let salesByProductTo     = '';
+let salesByProductShopId = '';
+
 let currentSale = {
     productId:     null,
     qty:           1,
@@ -306,18 +310,44 @@ function renderRecentSales() {
 }
 
 // ===== SALES BY PRODUCT =====
-// A per-product summary of every sale ever recorded (not just the current page/date
-// filter above) — grouped by product_name rather than product_id, since product_id goes
-// null if the product itself is later deleted, but product_name stays on the sale either
-// way. "History" shows every one of that product's sales, oldest changes visible by date.
+// A per-product summary of sales — grouped by product_name rather than product_id,
+// since product_id goes null if the product itself is later deleted, but product_name
+// stays on the sale either way. "History" shows every one of that product's sales
+// (within the same From/To/Shop filter below) by date, newest first.
+function populateSalesByProductShopFilter() {
+    const select = document.getElementById('salesByProductShop');
+    if (!select || select.options.length > 1) return; // already populated
+    select.innerHTML = '<option value="">All Shops</option>' +
+        _shops.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+}
+
+// Shared by the summary table and the History modal, so both always agree on what's
+// currently in view.
+function getFilteredSalesByProduct() {
+    const from   = salesByProductFrom;
+    const to     = salesByProductTo;
+    const shopId = salesByProductShopId ? Number(salesByProductShopId) : null;
+
+    return _sales.filter(s => {
+        if (shopId && s.shop_id !== shopId) return false;
+        const d = (s.sale_date || '').slice(0, 10);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+    });
+}
+
 function renderSalesByProduct() {
     const tbody = document.getElementById('salesByProductBody');
     if (!tbody) return;
 
+    populateSalesByProductShopFilter();
+
     const query = (document.getElementById('salesByProductSearch')?.value || '').toLowerCase().trim();
+    const filteredSales = getFilteredSalesByProduct();
 
     const groups = {};
-    for (const s of _sales) {
+    for (const s of filteredSales) {
         const name = s.product_name || 'Unknown';
         if (!groups[name]) groups[name] = { name, qty: 0, total: 0 };
         groups[name].qty   += Number(s.qty) || 0;
@@ -328,7 +358,7 @@ function renderSalesByProduct() {
     if (query) rows = rows.filter(r => r.name.toLowerCase().includes(query));
 
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🛒</span><p>${_sales.length ? 'No products match.' : 'No sales recorded yet.'}</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🛒</span><p>${filteredSales.length ? 'No products match.' : 'No sales in this range.'}</p></div></td></tr>`;
         return;
     }
 
@@ -348,7 +378,7 @@ function openProductSalesHistory(productName) {
     setInner('productHistoryName', productName);
     const tbody = document.getElementById('productHistoryBody');
     if (tbody) {
-        const sales = _sales
+        const sales = getFilteredSalesByProduct()
             .filter(s => (s.product_name || 'Unknown') === productName)
             .sort((a, b) => new Date(b.sale_date) - new Date(a.sale_date));
 
@@ -531,6 +561,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderRecentSales();
     });
     document.getElementById('salesByProductSearch')?.addEventListener('input', renderSalesByProduct);
+    document.getElementById('salesByProductFrom')?.addEventListener('change', e => {
+        salesByProductFrom = e.target.value;
+        renderSalesByProduct();
+    });
+    document.getElementById('salesByProductTo')?.addEventListener('change', e => {
+        salesByProductTo = e.target.value;
+        renderSalesByProduct();
+    });
+    document.getElementById('salesByProductShop')?.addEventListener('change', e => {
+        salesByProductShopId = e.target.value;
+        renderSalesByProduct();
+    });
+    document.getElementById('clearSalesByProductFilterBtn')?.addEventListener('click', () => {
+        salesByProductFrom = ''; salesByProductTo = ''; salesByProductShopId = '';
+        const fromEl = document.getElementById('salesByProductFrom');
+        const toEl   = document.getElementById('salesByProductTo');
+        const shopEl = document.getElementById('salesByProductShop');
+        const searchEl = document.getElementById('salesByProductSearch');
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
+        if (shopEl) shopEl.value = '';
+        if (searchEl) searchEl.value = '';
+        renderSalesByProduct();
+    });
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
     document.getElementById('newSaleBtn')?.addEventListener('click', () => {
         resetSaleForm();
