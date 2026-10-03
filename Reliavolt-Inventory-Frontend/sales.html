@@ -39,6 +39,10 @@
                 <span class="nav-icon">🛒</span>
                 <span class="nav-label">Sales</span>
             </a>
+            <a href="credit.html" class="nav-item">
+                <span class="nav-icon">📒</span>
+                <span class="nav-label">Credit</span>
+            </a>
             <a href="delivery.html" class="nav-item">
                 <span class="nav-icon">🚚</span>
                 <span class="nav-label">Delivery</span>
@@ -146,7 +150,17 @@
                                         <span class="payment-icon">🏦</span>
                                         Bank Transfer
                                     </button>
+                                    <button class="payment-method-btn" data-method="Credit">
+                                        <span class="payment-icon">📒</span>
+                                        Credit
+                                    </button>
                                 </div>
+                            </div>
+
+                            <div class="form-group" id="creditAmountPaidGroup" style="display:none;">
+                                <label class="form-label" for="creditAmountPaid">Amount Paid Now <span style="color:var(--text-light);font-weight:400;">(leave as 0 if fully on credit)</span></label>
+                                <input type="number" class="form-control" id="creditAmountPaid" value="0" min="0" placeholder="0">
+                                <div style="font-size:0.8rem;color:var(--text-light);margin-top:0.35rem;">Requires a customer name above — credit can't be given to a walk-in.</div>
                             </div>
 
                             <div class="amount-display">
@@ -169,6 +183,10 @@
                                 <div class="amount-row total-row">
                                     <span class="amount-label">Total Amount</span>
                                     <span class="amount-value" id="displayTotal">Le 0</span>
+                                </div>
+                                <div class="amount-row" id="creditBalanceRow" style="display:none;">
+                                    <span class="amount-label">On Credit</span>
+                                    <span class="amount-value" id="displayCreditBalance" style="color:#dc2626;">Le 0</span>
                                 </div>
                             </div>
 

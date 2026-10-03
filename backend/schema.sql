@@ -81,6 +81,10 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS shop_id INTEGER REFERENCES shops(
 UPDATE customers SET shop_id = 1 WHERE shop_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_shop_id ON customers(shop_id);
 
+-- Running balance a customer currently owes from buying on credit. Goes up when a credit
+-- sale is recorded, down as they make payments (see credit_payments below).
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_balance NUMERIC(14,2) NOT NULL DEFAULT 0;
+
 -- Sales
 CREATE TABLE IF NOT EXISTS sales (
     id             SERIAL PRIMARY KEY,
@@ -109,6 +113,26 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEF
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_commission_user_id ON sales(commission_user_id);
+
+-- How much of this sale's total was put on the customer's tab rather than paid at the
+-- time of sale (0 for a normal fully-paid sale). Requires a real, named customer — credit
+-- can't be extended to an anonymous walk-in.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS credit_amount NUMERIC(14,2) NOT NULL DEFAULT 0;
+
+-- Each payment a customer makes toward their running credit_balance (see customers
+-- above). Independent of any one sale — a payment just pays down the running total,
+-- the same way a shopkeeper's paper ledger would.
+CREATE TABLE IF NOT EXISTS credit_payments (
+    id          SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    amount      NUMERIC(14,2) NOT NULL,
+    note        TEXT,
+    shop_id     INTEGER REFERENCES shops(id) ON DELETE SET NULL,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    paid_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_credit_payments_customer ON credit_payments(customer_id, paid_at DESC);
 
 -- Full audit trail of every quantity change for a product — initial stock on creation,
 -- restocks/adjustments made via product edit, and deductions from each sale. A single

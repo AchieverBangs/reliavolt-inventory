@@ -5,6 +5,20 @@ const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
 
+// Same shape as sales.js's own date backdating — a payment can be logged for the day it
+// actually happened, not just the day it was typed in.
+function parsePaidDate(dateStr) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!parts) throw new Error('paid_date must be in YYYY-MM-DD format');
+    const [, y, m, d] = parts.map(Number);
+    const chosen = new Date(y, m - 1, d);
+    if (isNaN(chosen.getTime())) throw new Error('Invalid paid_date');
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (chosen > today) throw new Error('Payment date cannot be in the future');
+    return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+}
+
 // GET /api/customers  (scoped to the caller's shop unless Admin; Admin may pass ?shop_id=)
 router.get('/', verifyToken, async (req, res) => {
     try {
@@ -31,6 +45,31 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
+// GET /api/customers/credit — customers currently owing money (shop-scoped unless Admin)
+router.get('/credit', verifyToken, async (req, res) => {
+    try {
+        let query = `SELECT c.*, s.name AS shop_name FROM customers c
+                      LEFT JOIN shops s ON s.id = c.shop_id
+                      WHERE c.credit_balance > 0`;
+        const vals = [];
+
+        if (req.user.role === 'Admin') {
+            if (req.query.shop_id) { vals.push(req.query.shop_id); query += ` AND c.shop_id = $${vals.length}`; }
+        } else {
+            if (!req.user.shopId) return res.json([]);
+            vals.push(req.user.shopId);
+            query += ` AND c.shop_id = $${vals.length}`;
+        }
+
+        query += ' ORDER BY c.credit_balance DESC';
+        const { rows } = await pool.query(query, vals);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /api/customers/:id
 router.get('/:id', verifyToken, async (req, res) => {
     try {
@@ -44,6 +83,90 @@ router.get('/:id', verifyToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/customers/:id/credit-history — every credit sale and every payment, oldest
+// first, so the running balance's story is visible end to end.
+router.get('/:id/credit-history', verifyToken, async (req, res) => {
+    try {
+        const { rows: cRows } = await pool.query('SELECT id, name, shop_id, credit_balance FROM customers WHERE id = $1', [req.params.id]);
+        const customer = cRows[0];
+        if (!customer) return res.status(404).json({ error: 'Customer not found' });
+        if (req.user.role !== 'Admin' && customer.shop_id !== req.user.shopId) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        const { rows: sales } = await pool.query(
+            `SELECT 'sale' AS type, id, receipt_no, product_name, qty, credit_amount AS amount, sale_date AS at
+             FROM sales WHERE customer_id = $1 AND credit_amount > 0`,
+            [req.params.id]
+        );
+        const { rows: payments } = await pool.query(
+            `SELECT 'payment' AS type, cp.id, cp.amount, cp.note, cp.paid_at AS at, u.name AS recorded_by
+             FROM credit_payments cp LEFT JOIN users u ON u.id = cp.user_id
+             WHERE cp.customer_id = $1`,
+            [req.params.id]
+        );
+
+        const timeline = [...sales, ...payments].sort((a, b) => new Date(a.at) - new Date(b.at));
+        res.json({ customer: { id: customer.id, name: customer.name, credit_balance: customer.credit_balance }, timeline });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/customers/:id/credit-payments  { amount, note?, paid_date? }
+router.post('/:id/credit-payments', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async (req, res) => {
+    const { amount, note, paid_date } = req.body;
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return res.status(400).json({ error: 'A positive payment amount is required' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: cRows } = await client.query('SELECT id, name, shop_id, credit_balance FROM customers WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const customer = cRows[0];
+        if (!customer) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Customer not found' }); }
+        if (req.user.role !== 'Admin' && customer.shop_id !== req.user.shopId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'You can only record payments for customers from your own shop' });
+        }
+        if (amt > parseFloat(customer.credit_balance)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `Payment exceeds balance owed (Le ${customer.credit_balance})` });
+        }
+
+        let paidAt = new Date();
+        if (paid_date) {
+            try {
+                paidAt = parsePaidDate(paid_date);
+            } catch (err) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: err.message });
+            }
+        }
+
+        const newBalance = parseFloat(customer.credit_balance) - amt;
+        await client.query('UPDATE customers SET credit_balance = $1 WHERE id = $2', [newBalance, customer.id]);
+
+        const { rows: payment } = await client.query(
+            `INSERT INTO credit_payments (customer_id, amount, note, shop_id, user_id, paid_at)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [customer.id, amt, note || null, customer.shop_id, req.user.id, paidAt]
+        );
+
+        await client.query('COMMIT');
+        logActivity(req, 'create', 'credit_payment', payment[0].id, `Recorded Le ${amt} credit payment from "${customer.name}"`);
+        res.status(201).json({ payment: payment[0], newBalance });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 

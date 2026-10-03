@@ -157,7 +157,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 // POST /api/sales  — records a sale, decrements stock, and auto-creates the customer record
 // (customers are never added by hand — a name only enters the system via a sale)
 router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
-    const { product_id, customer_id, customer_name, customer_phone, qty, payment_method, sale_date } = req.body;
+    const { product_id, customer_id, customer_name, customer_phone, qty, payment_method, amount_paid, sale_date } = req.body;
     if (!product_id || !qty) return res.status(400).json({ error: 'product_id and qty are required' });
 
     // Optional backdating — lets a late entry reflect when the sale actually happened
@@ -230,14 +230,30 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             }
         }
 
+        // Credit sales need a real, named customer to owe the balance to — an anonymous
+        // walk-in can't be tracked down later for payment.
+        let creditAmount = 0;
+        if (payment_method === 'Credit') {
+            if (!resolvedCustomerId) throw new Error('A customer name is required to sell on credit');
+            const paidNow = Math.max(0, parseFloat(amount_paid) || 0);
+            creditAmount = Math.max(0, total - paidNow);
+        }
+
         const { rows } = await client.query(
             `INSERT INTO sales
              (receipt_no, product_id, product_name, customer_id, customer_name, qty,
-              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date, credit_amount)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
             [receiptNo, product_id, product.name, resolvedCustomerId, cName,
-             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate]
+             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate, creditAmount]
         );
+
+        if (creditAmount > 0) {
+            await client.query(
+                'UPDATE customers SET credit_balance = credit_balance + $1 WHERE id = $2',
+                [creditAmount, resolvedCustomerId]
+            );
+        }
 
         await client.query(
             `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id)
@@ -274,6 +290,15 @@ router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => 
         if (req.user.role !== 'Admin' && sale.shop_id !== req.user.shopId) {
             await client.query('ROLLBACK');
             return res.status(403).json({ error: 'You can only edit sales from your own shop' });
+        }
+
+        // Switching a sale into or out of Credit here would need to recompute credit_amount
+        // and adjust the customer's running balance, which this endpoint doesn't do — delete
+        // and re-record through POST /api/sales instead, same as for a product/qty mistake.
+        if (payment_method !== undefined && payment_method !== sale.payment_method &&
+            (payment_method === 'Credit' || sale.payment_method === 'Credit')) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'A sale cannot be switched into or out of Credit by editing — delete and re-record it instead' });
         }
 
         let newSaleDate = sale.sale_date;
@@ -334,15 +359,36 @@ router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => 
 
 // DELETE /api/sales/:id  (Admin only)
 router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
+    const client = await pool.connect();
     try {
-        const { rows: existing } = await pool.query('SELECT receipt_no FROM sales WHERE id = $1', [req.params.id]);
-        const { rowCount } = await pool.query('DELETE FROM sales WHERE id = $1', [req.params.id]);
-        if (!rowCount) return res.status(404).json({ error: 'Sale not found' });
-        logActivity(req, 'delete', 'sale', req.params.id, `Deleted sale — receipt ${existing[0]?.receipt_no || req.params.id}`);
+        await client.query('BEGIN');
+
+        const { rows: existing } = await client.query(
+            'SELECT receipt_no, customer_id, credit_amount FROM sales WHERE id = $1 FOR UPDATE',
+            [req.params.id]
+        );
+        if (!existing[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
+
+        // This sale's contribution to the customer's running credit balance never
+        // happened either, once the sale itself is gone — floored at 0 since any payments
+        // already made since can't be un-attributed to a specific sale.
+        if (existing[0].customer_id && parseFloat(existing[0].credit_amount) > 0) {
+            await client.query(
+                'UPDATE customers SET credit_balance = GREATEST(0, credit_balance - $1) WHERE id = $2',
+                [existing[0].credit_amount, existing[0].customer_id]
+            );
+        }
+
+        await client.query('DELETE FROM sales WHERE id = $1', [req.params.id]);
+        await client.query('COMMIT');
+        logActivity(req, 'delete', 'sale', req.params.id, `Deleted sale — receipt ${existing[0].receipt_no}`);
         res.json({ message: 'Sale deleted' });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 

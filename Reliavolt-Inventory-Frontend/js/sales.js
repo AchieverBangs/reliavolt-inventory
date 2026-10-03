@@ -124,6 +124,16 @@ function updateAmountDisplay() {
     setVal('displayTotal',     formatCurrency(total));
     setVal('displayProfit',    formatCurrency(profit));
     setVal('displayCost',      formatCurrency(cost));
+
+    const creditRow = document.getElementById('creditBalanceRow');
+    if (currentSale.paymentMethod === 'Credit') {
+        const paidNow = Math.max(0, parseFloat(document.getElementById('creditAmountPaid')?.value) || 0);
+        const onCredit = Math.max(0, total - paidNow);
+        setVal('displayCreditBalance', formatCurrency(onCredit));
+        if (creditRow) creditRow.style.display = 'flex';
+    } else if (creditRow) {
+        creditRow.style.display = 'none';
+    }
 }
 
 // ===== PAYMENT METHOD =====
@@ -132,6 +142,11 @@ function selectPaymentMethod(method) {
     document.querySelectorAll('.payment-method-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.method === method);
     });
+
+    const creditGroup = document.getElementById('creditAmountPaidGroup');
+    if (creditGroup) creditGroup.style.display = method === 'Credit' ? 'block' : 'none';
+
+    updateAmountDisplay();
     updateReceiptPreview();
 }
 
@@ -167,6 +182,11 @@ async function recordSale() {
     if (qty < 1) { showToast('Quantity must be at least 1.', 'error'); return; }
     if (saleDate && saleDate > todayStr()) { showToast('Sale date cannot be in the future.', 'error'); return; }
 
+    if (paymentMethod === 'Credit' && (!customerName || customerName.toLowerCase() === 'walk-in customer')) {
+        showToast('A customer name is required to sell on credit.', 'error');
+        return;
+    }
+
     const product = _products.find(p => p.id === currentSale.productId);
     if (!product) { showToast('Product not found.', 'error'); return; }
     if (product.quantity < qty) { showToast(`Only ${product.quantity} units available in stock.`, 'warning'); return; }
@@ -177,6 +197,7 @@ async function recordSale() {
             customer_name:  customerName || 'Walk-in Customer',
             qty,
             payment_method: paymentMethod,
+            amount_paid:    paymentMethod === 'Credit' ? (parseFloat(document.getElementById('creditAmountPaid')?.value) || 0) : undefined,
             sale_date:      saleDate || undefined,
         });
 
@@ -217,6 +238,9 @@ function resetSaleForm() {
 
     const dateInput = document.getElementById('saleDate');
     if (dateInput) dateInput.value = todayStr();
+
+    const creditPaidInput = document.getElementById('creditAmountPaid');
+    if (creditPaidInput) creditPaidInput.value = 0;
 
     clearProductInfo();
     updateAmountDisplay();
@@ -408,6 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('customerName')?.addEventListener('input', updateReceiptPreview);
+    document.getElementById('creditAmountPaid')?.addEventListener('input', updateAmountDisplay);
 
     document.querySelectorAll('.payment-method-btn').forEach(btn => {
         btn.addEventListener('click', () => selectPaymentMethod(btn.dataset.method));
