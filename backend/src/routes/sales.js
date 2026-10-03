@@ -361,17 +361,30 @@ router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => 
     }
 });
 
-// DELETE /api/sales/:id  (Admin only)
-router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
+// DELETE /api/sales/:id  — Admin can delete any sale; a Manager can only delete a Credit
+// sale from their own shop (e.g. to undo a wrong customer/amount entered on the spot),
+// not a normal Cash/Mobile Money/Bank Transfer sale.
+router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
         const { rows: existing } = await client.query(
-            'SELECT receipt_no, customer_id, credit_amount, credit_amount_paid FROM sales WHERE id = $1 FOR UPDATE',
+            'SELECT receipt_no, customer_id, credit_amount, credit_amount_paid, payment_method, shop_id FROM sales WHERE id = $1 FOR UPDATE',
             [req.params.id]
         );
         if (!existing[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
+
+        if (req.user.role !== 'Admin') {
+            if (existing[0].payment_method !== 'Credit') {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ error: 'Only Admin can delete a non-credit sale — Managers can delete Credit sales only' });
+            }
+            if (existing[0].shop_id !== req.user.shopId) {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ error: 'You can only delete sales from your own shop' });
+            }
+        }
 
         // This sale's contribution to the customer's running credit balance never
         // happened either, once the sale itself is gone — but only the portion still

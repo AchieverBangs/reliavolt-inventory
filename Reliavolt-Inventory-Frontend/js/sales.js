@@ -279,7 +279,13 @@ function renderRecentSales() {
         return;
     }
 
-    tbody.innerHTML = sales.map(s => `
+    const role = getCurrentUserRole();
+
+    tbody.innerHTML = sales.map(s => {
+        // Admin can delete any sale; a Manager can only delete a Credit sale (e.g. to
+        // undo a wrong customer/amount), matching what the backend actually allows.
+        const canDelete = admin || (role === 'Manager' && s.payment_method === 'Credit');
+        return `
         <tr>
             <td><strong>${escHtml(s.receipt_no)}</strong></td>
             <td>${escHtml(s.customer_name)}</td>
@@ -291,10 +297,11 @@ function renderRecentSales() {
             <td>
                 <div class="action-cell">
                     <button class="btn btn-warning btn-sm" onclick="openEditSale(${s.id})">✏️ Edit</button>
-                    ${admin ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : ''}
+                    ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : ''}
                 </div>
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
 }
 
 function renderSalesPagination(totalCount, totalPages) {
