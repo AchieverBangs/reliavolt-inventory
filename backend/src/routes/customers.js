@@ -1,6 +1,6 @@
 const express = require('express');
 const pool    = require('../db/pool');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
@@ -201,9 +201,10 @@ router.post('/:id/credit-payments', verifyToken, requireRole('Admin', 'Manager',
 // DELETE /api/customers/:id/credit-payments/:paymentId — reverse a payment, present or
 // previous: gives each sale it had paid down back its credit_amount_paid (so
 // earned_commission recomputes back down too, undoing any commission it had released),
-// restores the customer's credit_balance, and removes the payment. Manager is restricted
-// to their own shop, same as the Credit sale delete permission in sales.js.
-router.delete('/:id/credit-payments/:paymentId', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
+// restores the customer's credit_balance, and removes the payment. Gated by the
+// Customers Delete permission (same one as deleting a customer record); a non-Admin is
+// still restricted to their own shop regardless.
+router.delete('/:id/credit-payments/:paymentId', verifyToken, requirePermission('customers', 'delete'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -253,7 +254,7 @@ router.delete('/:id/credit-payments/:paymentId', verifyToken, requireRole('Admin
 // an existing record (e.g. to fix a typo) is still allowed below.
 
 // PUT /api/customers/:id
-router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), async (req, res) => {
+router.put('/:id', verifyToken, requirePermission('customers', 'edit'), async (req, res) => {
     const { name, phone, address } = req.body;
     if (!name) return res.status(400).json({ error: 'Customer name is required' });
 
@@ -282,7 +283,7 @@ router.put('/:id', verifyToken, requireRole('Admin', 'Manager', 'Cashier'), asyn
 });
 
 // DELETE /api/customers/:id
-router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
+router.delete('/:id', verifyToken, requirePermission('customers', 'delete'), async (req, res) => {
     try {
         const { rows: existingRows } = await pool.query('SELECT shop_id, name FROM customers WHERE id = $1', [req.params.id]);
         if (!existingRows[0]) return res.status(404).json({ error: 'Customer not found' });

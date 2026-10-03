@@ -1,6 +1,6 @@
 const express = require('express');
 const pool    = require('../db/pool');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
@@ -154,8 +154,8 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
     }
 });
 
-// DELETE /api/deliveries/:id  (Admin only)
-router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
+// DELETE /api/deliveries/:id  — Admin, or any role granted the Deliveries Delete permission
+router.delete('/:id', verifyToken, requirePermission('deliveries', 'delete'), async (req, res) => {
     try {
         const { rows: existing } = await pool.query('SELECT delivery_no FROM deliveries WHERE id = $1', [req.params.id]);
         const { rowCount } = await pool.query('DELETE FROM deliveries WHERE id = $1', [req.params.id]);

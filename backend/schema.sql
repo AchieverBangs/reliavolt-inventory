@@ -37,6 +37,44 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
 -- lock themselves out).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS can_write BOOLEAN NOT NULL DEFAULT true;
 
+-- Per-role Edit/Delete permissions, one row per (role, area, action) — see
+-- requirePermission in middleware/auth.js, which replaces what used to be a fixed
+-- requireRole(...) list on each Edit/Delete route. Admin is never stored here; it's
+-- always exempt, same as the write gate above. The seed below only ever INSERTs rows
+-- that don't exist yet (ON CONFLICT DO NOTHING), so it reproduces today's hardcoded
+-- defaults once, then leaves whatever an Admin later toggles via the Role Permissions
+-- table alone on every later boot.
+CREATE TABLE IF NOT EXISTS role_permissions (
+    id      SERIAL PRIMARY KEY,
+    role    VARCHAR(50) NOT NULL,
+    area    VARCHAR(50) NOT NULL,   -- 'sales' | 'products' | 'customers' | 'deliveries'
+    action  VARCHAR(50) NOT NULL,   -- 'edit' | 'delete'
+    allowed BOOLEAN NOT NULL DEFAULT false,
+    UNIQUE (role, area, action)
+);
+
+INSERT INTO role_permissions (role, area, action, allowed) VALUES
+    ('Manager', 'sales', 'edit', true),       ('Manager', 'sales', 'delete', true),
+    ('Manager', 'products', 'edit', false),   ('Manager', 'products', 'delete', false),
+    ('Manager', 'customers', 'edit', true),   ('Manager', 'customers', 'delete', true),
+    ('Manager', 'deliveries', 'delete', false),
+
+    ('Cashier', 'sales', 'edit', true),       ('Cashier', 'sales', 'delete', false),
+    ('Cashier', 'products', 'edit', false),   ('Cashier', 'products', 'delete', false),
+    ('Cashier', 'customers', 'edit', true),   ('Cashier', 'customers', 'delete', false),
+    ('Cashier', 'deliveries', 'delete', false),
+
+    ('Stock Manager', 'sales', 'edit', false),     ('Stock Manager', 'sales', 'delete', false),
+    ('Stock Manager', 'products', 'edit', false),  ('Stock Manager', 'products', 'delete', false),
+    ('Stock Manager', 'customers', 'edit', false), ('Stock Manager', 'customers', 'delete', false),
+    ('Stock Manager', 'deliveries', 'delete', false),
+
+    ('Delivery Person', 'sales', 'edit', false),     ('Delivery Person', 'sales', 'delete', false),
+    ('Delivery Person', 'products', 'edit', false),  ('Delivery Person', 'products', 'delete', false),
+    ('Delivery Person', 'customers', 'edit', false), ('Delivery Person', 'customers', 'delete', false),
+    ('Delivery Person', 'deliveries', 'delete', false)
+ON CONFLICT (role, area, action) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS login_history (
     id       SERIAL PRIMARY KEY,
     user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,

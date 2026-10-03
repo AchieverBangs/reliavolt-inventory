@@ -317,6 +317,51 @@ async function toggleWriteAccess(id, canWrite) {
     }
 }
 
+// ===== ROLE PERMISSIONS =====
+let _rolePermissions = [];
+const ROLE_PERM_ROLES = ['Manager', 'Cashier', 'Stock Manager', 'Delivery Person'];
+const ROLE_PERM_CELLS = [
+    ['sales', 'edit'], ['sales', 'delete'],
+    ['products', 'edit'], ['products', 'delete'],
+    ['customers', 'edit'], ['customers', 'delete'],
+    ['deliveries', 'delete'],
+];
+
+function isPermAllowed(role, area, action) {
+    return !!_rolePermissions.find(p => p.role === role && p.area === area && p.action === action)?.allowed;
+}
+
+function renderRolePermissions() {
+    const tbody = document.getElementById('rolePermBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = ROLE_PERM_ROLES.map(role => {
+        const cells = ROLE_PERM_CELLS.map(([area, action]) => {
+            const checked = isPermAllowed(role, area, action);
+            return `<td>
+                <label class="toggle-switch" title="${checked ? 'Allowed — click to turn off' : 'Not allowed — click to turn on'}">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleRolePermission('${role}', '${area}', '${action}', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </td>`;
+        }).join('');
+        return `<tr><td><span class="role-badge ${ROLE_BADGE_CLASS[role] || 'role-cashier'}">${escHtml(role)}</span></td>${cells}</tr>`;
+    }).join('');
+}
+
+async function toggleRolePermission(role, area, action, allowed) {
+    try {
+        await api.patch('/api/role-permissions', { role, area, action, allowed });
+        const existing = _rolePermissions.find(p => p.role === role && p.area === area && p.action === action);
+        if (existing) existing.allowed = allowed;
+        else _rolePermissions.push({ role, area, action, allowed });
+        showToast(`${role} ${allowed ? 'can now' : 'can no longer'} ${action} ${area}.`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+        renderRolePermissions(); // revert the toggle's visual state on failure
+    }
+}
+
 // ===== LOGIN HISTORY =====
 async function renderLoginHistory() {
     const tbody = document.getElementById('loginHistoryBody');
@@ -363,18 +408,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        [_users, _shops] = await Promise.all([
+        [_users, _shops, _rolePermissions] = await Promise.all([
             api.get('/api/users'),
             api.get('/api/shops'),
+            api.get('/api/role-permissions'),
         ]);
     } catch (err) {
         showToast('Failed to load users: ' + err.message, 'error');
-        _users = []; _shops = [];
+        _users = []; _shops = []; _rolePermissions = [];
     }
 
     renderUserStats();
     renderUserTable();
     renderWriteAccess();
+    renderRolePermissions();
     renderLoginHistory();
 
     if (hash === 'active' || hash === 'inactive' || hash === 'usersGrid') {

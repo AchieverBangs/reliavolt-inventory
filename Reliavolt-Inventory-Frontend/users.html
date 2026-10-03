@@ -223,6 +223,36 @@
                 </div>
             </div>
 
+            <!-- Role Permissions -->
+            <div class="card" style="margin-top:1.5rem;">
+                <div class="card-header">
+                    <span class="card-title">🛡️ Role Permissions</span>
+                    <span style="font-size:0.8rem;color:var(--text-light);">Turn Edit/Delete on or off per role, per area — e.g. stop every Manager from deleting, or let a Cashier edit products. Admin always has full access.</span>
+                </div>
+                <div class="table-wrapper">
+                    <table id="rolePermTable">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Role</th>
+                                <th colspan="2">Sales</th>
+                                <th colspan="2">Products</th>
+                                <th colspan="2">Customers</th>
+                                <th>Deliveries</th>
+                            </tr>
+                            <tr>
+                                <th>Edit</th><th>Delete</th>
+                                <th>Edit</th><th>Delete</th>
+                                <th>Edit</th><th>Delete</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rolePermBody">
+                            <tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🛡️</span><p>Loading...</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Login History -->
             <div class="card" style="margin-top:1.5rem;">
                 <div class="card-header">

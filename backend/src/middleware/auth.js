@@ -59,4 +59,27 @@ async function requireWrite(req, res, next) {
     }
 }
 
-module.exports = { verifyToken, requireRole, requireWrite };
+// Per-role Edit/Delete gate, configured live by Admin through the Role Permissions
+// table (role_permissions) — replaces what used to be a fixed requireRole(...) list on
+// routes like "edit a product" or "delete a sale". Admin is always exempt. Any other
+// safety rule already inside a route handler (shop-scoping, "Manager can only delete a
+// Credit sale", "can't delete your own account") is unrelated to this and stays as-is —
+// this only answers "can this role do this action at all".
+function requirePermission(area, action) {
+    return async (req, res, next) => {
+        if (req.user?.role === 'Admin') return next();
+        try {
+            const { rows } = await pool.query(
+                'SELECT allowed FROM role_permissions WHERE role = $1 AND area = $2 AND action = $3',
+                [req.user?.role, area, action]
+            );
+            if (rows[0]?.allowed) return next();
+            return res.status(403).json({ error: `Your role (${req.user?.role}) does not have permission to ${action} ${area}.` });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    };
+}
+
+module.exports = { verifyToken, requireRole, requireWrite, requirePermission };

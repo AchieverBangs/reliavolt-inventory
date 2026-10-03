@@ -1,6 +1,6 @@
 const express = require('express');
 const pool    = require('../db/pool');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
@@ -285,7 +285,7 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
 // product/quantity/prices stay locked (changing those would mean reversing and
 // reapplying stock and profit, a much bigger operation); delete and re-record
 // instead if one of those was wrong.
-router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
+router.put('/:id', verifyToken, requirePermission('sales', 'edit'), async (req, res) => {
     const { sale_date, payment_method, customer_name, customer_phone } = req.body;
 
     const client = await pool.connect();
@@ -365,10 +365,12 @@ router.put('/:id', verifyToken, requireRole(...SALE_ROLES), async (req, res) => 
     }
 });
 
-// DELETE /api/sales/:id  — Admin can delete any sale; a Manager can only delete a Credit
-// sale from their own shop (e.g. to undo a wrong customer/amount entered on the spot),
-// not a normal Cash/Mobile Money/Bank Transfer sale.
-router.delete('/:id', verifyToken, requireRole('Admin', 'Manager'), async (req, res) => {
+// DELETE /api/sales/:id  — Admin can delete any sale; any other role needs the Sales
+// Delete permission (Role Permissions table) AND is still restricted to a Credit sale
+// from their own shop (e.g. to undo a wrong customer/amount entered on the spot), never
+// a normal Cash/Mobile Money/Bank Transfer sale — that second restriction is a fixed
+// safety rule, not something the permission toggle can lift.
+router.delete('/:id', verifyToken, requirePermission('sales', 'delete'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');

@@ -15,6 +15,7 @@ const activityRouter   = require('./routes/activity');
 const commissionRouter = require('./routes/commission');
 const aiRouter          = require('./routes/ai');
 const updatesRouter     = require('./routes/updates');
+const rolePermissionsRouter = require('./routes/rolePermissions');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/activity',   activityRouter);
 app.use('/api/commission', commissionRouter);
 app.use('/api/ai',         aiRouter);
 app.use('/api/updates',    updatesRouter);
+app.use('/api/role-permissions', rolePermissionsRouter);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.path} not found` }));

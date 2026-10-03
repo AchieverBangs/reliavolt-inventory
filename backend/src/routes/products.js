@@ -3,7 +3,7 @@ const multer   = require('multer');
 const ExcelJS  = require('exceljs');
 const { Readable } = require('stream');
 const pool     = require('../db/pool');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
 
 const router = express.Router();
@@ -318,8 +318,11 @@ router.post('/import', verifyToken, requireRole(...STOCK_ROLES), upload.single('
     }
 });
 
-// PUT /api/products/:id  (Admin only)
-router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
+// PUT /api/products/:id  — Admin, or any role granted the Products Edit permission
+// (Role Permissions table). cost_price stays Admin-only regardless, same rule as
+// creating a product — a non-Admin's request can't change it, and the response never
+// includes it for them.
+router.put('/:id', verifyToken, requirePermission('products', 'edit'), async (req, res) => {
     const { name, category, brand, cost_price, selling_price, quantity, icon, shop_id, commission, commission_user_id } = req.body;
     if (!name) return res.status(400).json({ error: 'Product name is required' });
 
@@ -327,14 +330,15 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        const { rows: beforeRows } = await client.query('SELECT quantity FROM products WHERE id=$1 FOR UPDATE', [req.params.id]);
+        const { rows: beforeRows } = await client.query('SELECT quantity, cost_price FROM products WHERE id=$1 FOR UPDATE', [req.params.id]);
         if (!beforeRows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
         const oldQty = beforeRows[0].quantity;
+        const effectiveCostPrice = req.user.role === 'Admin' ? (cost_price || 0) : beforeRows[0].cost_price;
 
         const { rows } = await client.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
              selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9, commission_user_id=$10 WHERE id=$11 RETURNING *`,
-            [name, category || null, brand || null, cost_price || 0, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
+            [name, category || null, brand || null, effectiveCostPrice, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
         );
         if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
 
@@ -357,7 +361,7 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         // the figures that depend on cost/commission. Commission falls back to each
         // sale's own processing staff when no owner is designated, same rule as a
         // fresh sale.
-        const newCostPrice = cost_price || 0;
+        const newCostPrice = effectiveCostPrice;
         const { rowCount: backfilled } = await client.query(
             `UPDATE sales SET
                 unit_cost = $1,
@@ -371,7 +375,7 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         await client.query('COMMIT');
         logActivity(req, 'update', 'product', rows[0].id,
             `Updated product "${name}"${backfilled ? ` — recalculated cost/profit/commission on ${backfilled} past sale(s)` : ''}`);
-        res.json({ ...rows[0], salesBackfilled: backfilled });
+        res.json(hideCost({ ...rows[0], salesBackfilled: backfilled }, req.user.role));
     } catch (err) {
         await client.query('ROLLBACK');
         if (err.code === '23503') return res.status(400).json({ error: 'shop_id or commission owner does not exist' });
@@ -382,8 +386,8 @@ router.put('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
     }
 });
 
-// DELETE /api/products/:id  (Admin only)
-router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
+// DELETE /api/products/:id  — Admin, or any role granted the Products Delete permission
+router.delete('/:id', verifyToken, requirePermission('products', 'delete'), async (req, res) => {
     try {
         const { rows: existing } = await pool.query('SELECT name FROM products WHERE id = $1', [req.params.id]);
         const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
