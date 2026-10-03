@@ -153,6 +153,48 @@ function renderLowStockReport() {
     }).join('');
 }
 
+// ===== STOCK REPORT (Added / Sold / Remaining per product) =====
+let _stockSummary = null; // lazy-loaded on first visit to this tab
+
+async function renderStockReport() {
+    const tbody = document.getElementById('stockReportBody');
+    if (!tbody) return;
+
+    if (!_stockSummary) {
+        try {
+            _stockSummary = await api.get('/api/products/stock-summary');
+        } catch (err) {
+            showToast('Failed to load stock report: ' + err.message, 'error');
+            _stockSummary = [];
+        }
+    }
+
+    const admin = isAdmin();
+    if (!_stockSummary.length) {
+        tbody.innerHTML = `<tr><td colspan="${admin ? 6 : 5}">
+            <div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div>
+        </td></tr>`;
+    } else {
+        tbody.innerHTML = _stockSummary.map(p => `<tr>
+            <td><span class="product-icon-sm">${p.icon || '📦'}</span> <strong>${escHtml(p.name)}</strong></td>
+            <td>${escHtml(p.category || '')}</td>
+            ${admin ? `<td>${escHtml(p.shop_name || '')}</td>` : ''}
+            <td>${p.total_added}</td>
+            <td>${p.total_sold}</td>
+            <td>${p.current}</td>
+        </tr>`).join('');
+    }
+
+    const totals = _stockSummary.reduce((acc, p) => ({
+        added:     acc.added     + Number(p.total_added),
+        sold:      acc.sold      + Number(p.total_sold),
+        remaining: acc.remaining + Number(p.current),
+    }), { added: 0, sold: 0, remaining: 0 });
+    setEl('stockRptTotalAdded',     totals.added);
+    setEl('stockRptTotalSold',      totals.sold);
+    setEl('stockRptTotalRemaining', totals.remaining);
+}
+
 // ===== WEEKLY CHART =====
 function renderWeeklyChart() {
     const canvas = document.getElementById('weeklyChart');
@@ -355,6 +397,9 @@ function switchReportTab(period) {
     } else if (period === 'lowstock') {
         document.getElementById('tab-lowstock').classList.add('active');
         renderLowStockReport();
+    } else if (period === 'stock') {
+        document.getElementById('tab-stock').classList.add('active');
+        renderStockReport();
     } else if (period === 'chart') {
         document.getElementById('tab-chart').classList.add('active');
         setTimeout(renderWeeklyChart, 50);
@@ -389,7 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     populateReportCategoryFilter();
 
-    const validTabs = ['daily', 'weekly', 'monthly', 'profit', 'lowstock', 'chart', 'byshop'];
+    const validTabs = ['daily', 'weekly', 'monthly', 'profit', 'lowstock', 'stock', 'chart', 'byshop'];
     const hash      = window.location.hash.slice(1);
     const startTab  = validTabs.includes(hash) ? hash : 'daily';
     switchReportTab(startTab);
@@ -418,8 +463,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         rerenderSalesTab();
     });
 
-    document.getElementById('printReportBtn')?.addEventListener('click',     () => window.print());
-    document.getElementById('printShopReportBtn')?.addEventListener('click', () => window.print());
+    document.getElementById('printReportBtn')?.addEventListener('click',      () => window.print());
+    document.getElementById('printShopReportBtn')?.addEventListener('click',  () => window.print());
+    document.getElementById('printStockReportBtn')?.addEventListener('click', () => window.print());
     document.getElementById('shopReportSelect')?.addEventListener('change', e => {
         if (e.target.value) renderShopReport(e.target.value);
         else {

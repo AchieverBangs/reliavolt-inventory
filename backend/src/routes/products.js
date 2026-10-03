@@ -76,6 +76,38 @@ router.get('/summary/by-shop', verifyToken, requireRole('Admin'), async (req, re
     }
 });
 
+// GET /api/products/stock-summary — every product's Total Added / Total Sold / Remaining
+// in one call (scoped to the caller's shop unless Admin, same rule as GET /), for the
+// Reports "Stock" tab rather than hitting the per-product history endpoint N times.
+router.get('/stock-summary', verifyToken, async (req, res) => {
+    try {
+        let query = `
+            SELECT p.id, p.name, p.category, p.icon, p.quantity AS current,
+                   s.name AS shop_name,
+                   COALESCE(SUM(sm.qty_change) FILTER (WHERE sm.qty_change > 0), 0)::int AS total_added,
+                   COALESCE(-SUM(sm.qty_change) FILTER (WHERE sm.type = 'sale'), 0)::int AS total_sold
+            FROM products p
+            LEFT JOIN shops s ON s.id = p.shop_id
+            LEFT JOIN stock_movements sm ON sm.product_id = p.id`;
+        const vals = [];
+
+        if (req.user.role === 'Admin') {
+            if (req.query.shop_id) { vals.push(req.query.shop_id); query += ` WHERE p.shop_id = $${vals.length}`; }
+        } else {
+            if (!req.user.shopId) return res.json([]);
+            vals.push(req.user.shopId);
+            query += ` WHERE p.shop_id = $${vals.length}`;
+        }
+
+        query += ' GROUP BY p.id, p.name, p.category, p.icon, p.quantity, s.name ORDER BY p.name';
+        const { rows } = await pool.query(query, vals);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /api/products/:id
 router.get('/:id', verifyToken, async (req, res) => {
     try {

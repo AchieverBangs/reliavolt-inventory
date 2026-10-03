@@ -99,6 +99,7 @@
                 <button class="tab-btn" data-period="monthly">📆 Monthly</button>
                 <button class="tab-btn nav-admin hidden" data-period="profit">📈 Profit</button>
                 <button class="tab-btn" data-period="lowstock">⚠️ Low Stock</button>
+                <button class="tab-btn" data-period="stock">📦 Stock</button>
                 <button class="tab-btn" data-period="chart">📊 Chart</button>
                 <button class="tab-btn" data-period="byshop">🏪 By Shop</button>
             </div>
@@ -239,6 +240,58 @@
                             </thead>
                             <tbody id="lowStockBody">
                                 <tr><td colspan="6"><div class="empty-state"><span class="empty-icon">✅</span><p>All products are sufficiently stocked.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Report: Added / Sold / Remaining per product -->
+            <div class="tab-content" id="tab-stock">
+                <div class="rpt-section-header">
+                    <h2 class="rpt-section-title">Stock Report</h2>
+                    <button class="btn btn-secondary btn-sm no-print" id="printStockReportBtn">🖨️ Print</button>
+                </div>
+
+                <div class="rpt-stats-grid">
+                    <a href="inventory.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">📥</div>
+                        <div class="rpt-stat-label">Total Added</div>
+                        <div class="rpt-stat-value primary" id="stockRptTotalAdded">0</div>
+                        <div class="rpt-stat-hint">View Inventory &rarr;</div>
+                    </a>
+                    <a href="inventory.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">📤</div>
+                        <div class="rpt-stat-label">Total Sold</div>
+                        <div class="rpt-stat-value orange" id="stockRptTotalSold">0</div>
+                        <div class="rpt-stat-hint">View Inventory &rarr;</div>
+                    </a>
+                    <a href="inventory.html" class="card rpt-stat-card rpt-stat-link">
+                        <div class="rpt-stat-icon">📦</div>
+                        <div class="rpt-stat-label">Total Remaining</div>
+                        <div class="rpt-stat-value green" id="stockRptTotalRemaining">0</div>
+                        <div class="rpt-stat-hint">View Inventory &rarr;</div>
+                    </a>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Goods Added, Sold &amp; Remaining — By Product</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th class="nav-admin hidden">Shop</th>
+                                    <th>Total Added</th>
+                                    <th>Total Sold</th>
+                                    <th>Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stockReportBody">
+                                <tr><td colspan="6"><div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div></td></tr>
                             </tbody>
                         </table>
                     </div>
