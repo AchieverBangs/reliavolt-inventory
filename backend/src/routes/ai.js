@@ -7,16 +7,33 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 const ASK_ROLES = ['Admin', 'Manager', 'Cashier', 'Stock Manager'];
 
-// Each question costs real money (an Anthropic API call) — cap per-user, not per-IP,
-// since a whole shop can share one network connection.
+// Each message costs real money (an Anthropic API call) — cap per-user, not per-IP,
+// since a whole shop can share one network connection. A real back-and-forth chat burns
+// through more messages than one-off questions did, so this is a bit more generous.
 const askLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 40,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => String(req.user?.id || req.ip),
-    message: { error: 'Too many questions in a short time. Please wait a few minutes and try again.' },
+    message: { error: 'Too many messages in a short time. Please wait a few minutes and try again.' },
 });
+
+// How much prior conversation the client may send back as context. Keeps cost and abuse
+// surface bounded — this is a quick assistant, not an unlimited chat log.
+const MAX_HISTORY_TURNS = 12;
+const MAX_MESSAGE_CHARS = 2000;
+
+// Turns a client-supplied history array into clean {role, content} messages, dropping
+// anything malformed rather than trusting it — this becomes part of the prompt sent to
+// Claude, so it's untrusted input same as the question itself.
+function sanitizeHistory(history) {
+    if (!Array.isArray(history)) return [];
+    return history
+        .filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim())
+        .slice(-MAX_HISTORY_TURNS)
+        .map(h => ({ role: h.role, content: h.content.trim().slice(0, MAX_MESSAGE_CHARS) }));
+}
 
 const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const MODEL = process.env.AI_QUERY_MODEL || 'claude-haiku-4-5';
@@ -182,20 +199,31 @@ async function runTool(name, input, req) {
     }
 }
 
-// POST /api/ai/ask  { question }
+// POST /api/ai/ask  { question, history? }
 router.post('/ask', verifyToken, requireRole(...ASK_ROLES), askLimiter, async (req, res) => {
-    const { question } = req.body;
+    const { question, history } = req.body;
     if (!question || !question.trim()) return res.status(400).json({ error: 'A question is required' });
     if (!client) return res.status(503).json({ error: 'AI assistant is not configured on this server yet' });
 
     const today = new Date().toISOString().slice(0, 10);
-    const systemPrompt = `You are a helpful assistant inside Reliavolt Supply's inventory system, answering ${req.user.name} (role: ${req.user.role}${req.user.shopId ? `, shop_id ${req.user.shopId}` : ''}).
+    const systemPrompt = `You are the in-app assistant for Reliavolt Supply ("We Go For Value"), an electrical-supply shop's inventory system in Sierra Leone. You're answering ${req.user.name} (role: ${req.user.role}${req.user.shopId ? `, shop_id ${req.user.shopId}` : ''}) inside a chat widget they opened from within the app.
 Today's date is ${today}. Use it to resolve relative dates like "last month", "this week", or "yesterday" into exact YYYY-MM-DD ranges before calling a tool.
-Always use a tool to look up real numbers before answering — never guess or make up figures. If a tool returns no matching rows, say so plainly instead of inventing an answer.
-Currency is Sierra Leonean Leone; format amounts like "Le 45,000".
-Keep answers short and conversational — one or two sentences, like a quick reply from a coworker, not a report.`;
 
-    const messages = [{ role: 'user', content: question.trim() }];
+You can help with two kinds of questions:
+1. Real data lookups (stock, sales, commission) — always use a tool to get real numbers before answering. Never guess or make up figures. If a tool returns no matching rows, say so plainly instead of inventing an answer.
+2. How-to questions about using the system — answer directly from what you know about it, no tool needed:
+   - Dashboard: daily stats, commission summary, recent sales, low stock, this chat.
+   - Inventory: add/edit products (Admin), import from Excel/CSV, each product has a "History" button showing every stock addition and sale with running totals.
+   - Sales: record a sale (pick product + qty, optionally backdate it with "Sale Date" if it happened earlier), edit an already-recorded sale's date/customer/payment method, paginated Recent Sales list with a date filter.
+   - Reports: Daily/Weekly/Monthly sales, Profit (Admin), Low Stock, Stock (added/sold/remaining per product, printable to PDF via the browser's print dialog), Chart, By Shop.
+   - Commission: a flat amount per unit sold, set per product, optionally assigned to one designated staff member who always earns it regardless of who processes the sale; once a month ends, both the staff member and an Admin confirm it separately (received / paid).
+   - Settings, Users and Shops (Admin only), System Logs (Admin only, full activity audit trail).
+   - Roles: Admin sees everything across all shops including cost/profit; Manager, Cashier, and Stock Manager are scoped to their own shop and never see cost price or profit; Delivery Person only sees deliveries.
+
+Currency is Sierra Leonean Leone; format amounts like "Le 45,000".
+Keep answers short and conversational — one or two sentences, like a quick reply from a coworker in a chat, not a report. Only elaborate if the question genuinely needs more than that.`;
+
+    const messages = [...sanitizeHistory(history), { role: 'user', content: question.trim() }];
 
     try {
         let response = await client.messages.create({

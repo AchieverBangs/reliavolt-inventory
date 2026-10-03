@@ -152,8 +152,25 @@
     </div>
 </div>
 
+<!-- AI Chat Widget -->
+<button class="ai-chat-bubble hidden" id="aiChatBubble" aria-label="Ask Reliavolt" title="Ask Reliavolt">🤖</button>
+<div class="ai-chat-panel" id="aiChatPanel">
+    <div class="ai-chat-header">
+        <span>🤖 Ask Reliavolt</span>
+        <button class="ai-chat-close" id="aiChatClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="ai-chat-messages" id="aiChatMessages">
+        <div class="ai-chat-msg ai-chat-msg-bot">Hi! Ask me about stock, sales, commission, or how to use the system.</div>
+    </div>
+    <form class="ai-chat-input-row" id="aiChatForm">
+        <input type="text" id="aiChatInput" placeholder="Ask a question..." autocomplete="off">
+        <button type="submit" id="aiChatSend" aria-label="Send">&#10148;</button>
+    </form>
+</div>
+
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ai-chat.js"></script>
 <script src="js/system-logs.js"></script>
 </body>
 </html>
