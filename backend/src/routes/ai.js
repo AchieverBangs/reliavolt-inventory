@@ -68,6 +68,7 @@ const TOOLS_BASE = [
             type: 'object',
             properties: {
                 product_name: { type: 'string', description: 'Full or partial product name to search for' },
+                shop_name: { type: 'string', description: "Admin only: restrict to one shop by name, e.g. 'Bo'. Ignored for non-Admin callers, who are always scoped to their own shop." },
             },
             required: ['product_name'],
         },
@@ -75,30 +76,37 @@ const TOOLS_BASE = [
     {
         name: 'list_low_stock',
         description: "List products that are low in stock (10 units or fewer) or completely out of stock. Use this for questions like 'what's running low' or 'what do we need to restock'.",
-        input_schema: { type: 'object', properties: {} },
+        input_schema: {
+            type: 'object',
+            properties: {
+                shop_name: { type: 'string', description: "Admin only: restrict to one shop by name. Ignored for non-Admin callers, who are always scoped to their own shop." },
+            },
+        },
     },
     {
         name: 'get_sales_summary',
-        description: "Get total units sold, revenue, and transaction count over a date range, optionally filtered to one product. Use this for questions like 'how many X did we sell last month' or 'what was our revenue this week'. Dates are YYYY-MM-DD.",
+        description: "Get total units sold, revenue, and transaction count over a date range, optionally filtered to one product and/or (Admin only) one shop. Use this for questions like 'how many X did we sell last month', 'what was our revenue this week', or 'what were August sales for the Bo shop'. Dates are YYYY-MM-DD.",
         input_schema: {
             type: 'object',
             properties: {
                 from: { type: 'string', description: 'Start date, YYYY-MM-DD, inclusive' },
                 to: { type: 'string', description: 'End date, YYYY-MM-DD, inclusive' },
                 product_name: { type: 'string', description: 'Optional: restrict to products matching this name (partial match)' },
+                shop_name: { type: 'string', description: "Admin only: restrict to one shop by name, e.g. 'Bo'. Ignored for non-Admin callers, who are always scoped to their own shop." },
             },
             required: ['from', 'to'],
         },
     },
     {
         name: 'get_top_sellers',
-        description: "Get the best-selling products by quantity over a date range. Use this for questions like 'what's our top seller this month'. Dates are YYYY-MM-DD.",
+        description: "Get the best-selling products by quantity over a date range, optionally restricted (Admin only) to one shop. Use this for questions like 'what's our top seller this month' or 'top sellers at the Bo shop'. Dates are YYYY-MM-DD.",
         input_schema: {
             type: 'object',
             properties: {
                 from: { type: 'string', description: 'Start date, YYYY-MM-DD, inclusive' },
                 to: { type: 'string', description: 'End date, YYYY-MM-DD, inclusive' },
                 limit: { type: 'integer', description: 'How many top products to return (default 5)' },
+                shop_name: { type: 'string', description: "Admin only: restrict to one shop by name. Ignored for non-Admin callers, who are always scoped to their own shop." },
             },
             required: ['from', 'to'],
         },
@@ -123,6 +131,7 @@ const TOOLS_BASE = [
             type: 'object',
             properties: {
                 product_name: { type: 'string', description: 'Full or partial product name to search for' },
+                shop_name: { type: 'string', description: "Admin only: restrict to one shop by name. Ignored for non-Admin callers, who are always scoped to their own shop." },
             },
             required: ['product_name'],
         },
@@ -179,9 +188,19 @@ const TOOLS_ADMIN = [
 
 const ADMIN_ONLY_TOOL_NAMES = new Set(TOOLS_ADMIN.map(t => t.name));
 
+// Non-Admin callers are always pinned to their own shop. An Admin gets no filter (sees
+// everything) unless they named one shop by name, in which case it's resolved here — a
+// name matching nothing resolves to -1 (no real shop has that id) so the query comes back
+// empty instead of silently falling through to "all shops".
+async function resolveShopId(admin, shopNameInput, ownShopId) {
+    if (!admin) return ownShopId;
+    if (!shopNameInput) return null;
+    const { rows } = await pool.query('SELECT id FROM shops WHERE name ILIKE $1 LIMIT 1', [`%${shopNameInput}%`]);
+    return rows[0] ? rows[0].id : -1;
+}
+
 async function runTool(name, input, req) {
     const admin = req.user.role === 'Admin';
-    const shopId = admin ? null : req.user.shopId;
 
     // Belt-and-braces: even though a non-Admin's request never includes TOOLS_ADMIN in the
     // first place, refuse to execute one of those queries here too, in case that ever
@@ -192,6 +211,7 @@ async function runTool(name, input, req) {
 
     switch (name) {
         case 'get_product_stock': {
+            const shopId = await resolveShopId(admin, input.shop_name, req.user.shopId);
             const { rows } = await pool.query(
                 `SELECT name, category, quantity, selling_price, cost_price
                  FROM products
@@ -203,6 +223,7 @@ async function runTool(name, input, req) {
         }
 
         case 'list_low_stock': {
+            const shopId = await resolveShopId(admin, input.shop_name, req.user.shopId);
             const { rows } = await pool.query(
                 `SELECT name, category, quantity
                  FROM products
@@ -214,6 +235,7 @@ async function runTool(name, input, req) {
         }
 
         case 'get_sales_summary': {
+            const shopId = await resolveShopId(admin, input.shop_name, req.user.shopId);
             const { rows } = await pool.query(
                 `SELECT COUNT(*)::int AS transactions,
                         COALESCE(SUM(qty), 0)::int AS total_qty,
@@ -230,6 +252,7 @@ async function runTool(name, input, req) {
         }
 
         case 'get_top_sellers': {
+            const shopId = await resolveShopId(admin, input.shop_name, req.user.shopId);
             const limit = Math.min(Math.max(parseInt(input.limit, 10) || 5, 1), 20);
             const { rows } = await pool.query(
                 `SELECT product_name, SUM(qty)::int AS qty_sold, SUM(total) AS revenue
@@ -268,6 +291,7 @@ async function runTool(name, input, req) {
         }
 
         case 'get_stock_history': {
+            const shopId = await resolveShopId(admin, input.shop_name, req.user.shopId);
             const { rows } = await pool.query(
                 `SELECT p.name, p.quantity AS current,
                         COALESCE(SUM(sm.qty_change) FILTER (WHERE sm.qty_change > 0), 0)::int AS total_added,
@@ -360,7 +384,7 @@ router.post('/ask', verifyToken, requireRole(...ASK_ROLES), askLimiter, async (r
 Today's date is ${today}. Use it to resolve relative dates like "last month", "this week", or "yesterday" into exact YYYY-MM-DD ranges before calling a tool.
 
 You can help with two kinds of questions:
-1. Real data lookups (stock, sales, commission${admin ? ', shop comparisons, staff, system activity, and commission settlement status' : ''}) — always use a tool to get real numbers before answering. Never guess or make up figures. If a tool returns no matching rows, say so plainly instead of inventing an answer.
+1. Real data lookups (stock, sales, commission${admin ? ', shop comparisons, staff, system activity, and commission settlement status' : ''}) — always use a tool to get real numbers before answering. Never guess or make up figures. If a tool returns no matching rows, say so plainly instead of inventing an answer.${admin ? " Most tools accept an optional shop_name, so when asked about one specific shop (e.g. 'August sales for the Bo shop'), pass that shop's name rather than fetching company-wide totals and saying you can't filter — you can." : ''}
 2. How-to questions about using the system — answer directly from what you know about it, no tool needed:
    - Dashboard: daily stats, commission summary, recent sales, low stock, this chat.
    - Inventory: add/edit products (Admin), import from Excel/CSV, each product has a "History" button showing every stock addition and sale with running totals.
