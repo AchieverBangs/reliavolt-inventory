@@ -615,4 +615,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('commissionConfirmModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'commissionConfirmModal') dismissPersonalCommissionModal();
     });
+
+    document.getElementById('askForm')?.addEventListener('submit', askReliavolt);
 });
+
+// ===== ASK RELIAVOLT (AI assistant) =====
+async function askReliavolt(e) {
+    e.preventDefault();
+    const input = document.getElementById('askInput');
+    const btn = document.getElementById('askSubmitBtn');
+    const answerBox = document.getElementById('askAnswer');
+    const question = input.value.trim();
+    if (!question) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Thinking...';
+    answerBox.style.display = 'block';
+    answerBox.style.color = 'var(--text-light)';
+    answerBox.textContent = 'Let me check...';
+
+    try {
+        const { answer } = await api.post('/api/ai/ask', { question });
+        answerBox.style.color = 'var(--text)';
+        answerBox.textContent = answer;
+    } catch (err) {
+        answerBox.style.color = '#dc2626';
+        answerBox.textContent = err.message || 'Something went wrong — try again.';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ask';
+    }
+}

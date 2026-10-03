@@ -109,6 +109,21 @@
                     </a>
                 </div>
 
+                <!-- Ask Reliavolt (AI assistant) -->
+                <div class="card" id="askCard" style="margin-bottom:1.5rem;">
+                    <div class="card-header">
+                        <span class="card-title">🤖 Ask Reliavolt</span>
+                    </div>
+                    <div class="card-body">
+                        <form id="askForm" style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+                            <input type="text" class="form-control" id="askInput"
+                                placeholder="e.g. how many LED bulbs do we have left?" style="flex:1;min-width:220px;">
+                            <button type="submit" class="btn btn-primary" id="askSubmitBtn">Ask</button>
+                        </form>
+                        <div id="askAnswer" style="display:none;margin-top:1rem;padding:0.9rem 1.1rem;background:var(--bg);border-radius:var(--radius);font-size:0.92rem;line-height:1.5;"></div>
+                    </div>
+                </div>
+
                 <!-- Stats Cards -->
                 <div class="stats-grid">
                     <a href="inventory.html" class="stat-card blue">

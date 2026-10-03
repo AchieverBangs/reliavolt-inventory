@@ -12,6 +12,7 @@ const deliveriesRouter = require('./routes/deliveries');
 const settingsRouter   = require('./routes/settings');
 const activityRouter   = require('./routes/activity');
 const commissionRouter = require('./routes/commission');
+const aiRouter          = require('./routes/ai');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/settings',   settingsRouter);
 app.use('/api/activity',   activityRouter);
 app.use('/api/commission', commissionRouter);
+app.use('/api/ai',         aiRouter);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.path} not found` }));
