@@ -146,6 +146,13 @@ function selectPaymentMethod(method) {
     const creditGroup = document.getElementById('creditAmountPaidGroup');
     if (creditGroup) creditGroup.style.display = method === 'Credit' ? 'block' : 'none';
 
+    // A credit sale needs a real customer to owe the balance to — make that obvious on
+    // the field itself, not just as an error toast after the fact.
+    const nameLabel = document.getElementById('customerNameLabel');
+    const nameInput = document.getElementById('customerName');
+    if (nameLabel) nameLabel.innerHTML = method === 'Credit' ? 'Customer Name <span style="color:#dc2626;">*</span>' : 'Customer Name';
+    if (nameInput) nameInput.placeholder = method === 'Credit' ? 'Required for a credit sale' : 'Walk-in Customer';
+
     updateAmountDisplay();
     updateReceiptPreview();
 }
