@@ -61,22 +61,13 @@ function appendAiChatMessage(text, cls) {
     el.className = `ai-chat-msg ${cls}`;
     el.textContent = text;
     box.appendChild(el);
-
-    // Any real answer (not a loading/error flicker) can be saved as a PDF via the
-    // browser's own print dialog — the same mechanism the Reports page already uses,
-    // so no new library or backend work is needed for this.
-    if (cls === 'ai-chat-msg-bot' || cls === 'ai-chat-msg-update') {
-        const printBtn = document.createElement('button');
-        printBtn.type = 'button';
-        printBtn.className = 'ai-chat-print-btn';
-        printBtn.textContent = '🖨️ Save as PDF';
-        printBtn.addEventListener('click', () => printAiChatMessage(text));
-        box.appendChild(printBtn);
-    }
-
     box.scrollTop = box.scrollHeight;
     return el;
 }
+
+// No button — this only fires when the user actually asks for it in the chat itself
+// ("give me that as a PDF", "can I print this", "download this report").
+const PDF_REQUEST_RE = /\b(pdf|print|download)\b/i;
 
 function escapeHtmlLocal(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -135,6 +126,8 @@ async function sendAiChatMessage(e) {
         _aiChatHistory.push({ role: 'user', content: question });
         _aiChatHistory.push({ role: 'assistant', content: answer });
         if (_aiChatHistory.length > 20) _aiChatHistory = _aiChatHistory.slice(-20);
+
+        if (PDF_REQUEST_RE.test(question)) printAiChatMessage(answer);
     } catch (err) {
         loadingEl.remove();
         appendAiChatMessage(err.message || 'Something went wrong — try again.', 'ai-chat-msg-error');

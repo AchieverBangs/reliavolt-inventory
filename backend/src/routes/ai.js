@@ -402,8 +402,10 @@ ${admin
     : `- This caller is a ${req.user.role}, scoped to their own shop only. They can see their own shop's stock and sales, and only their own commission — never cost price, never profit, never another shop's or another staff member's figures, never the company-wide staff list or system activity log.
 - If asked for something outside that scope (another shop's numbers, company-wide totals, other staff's commission, the activity log, cost/profit), don't guess or invent a plausible-sounding number — briefly explain that's limited to Admin accounts and suggest asking an Admin.`}
 
+PRINTING — if asked to "print", "save as PDF", "download", or "export" something: the app automatically opens a print dialog on whatever you write back, so don't just confirm — put the actual full content (the report, the figures, whatever was asked for) in your answer text itself. If they're asking to print something already covered earlier in this conversation, repeat it in full here rather than saying "see above".
+
 Currency is Sierra Leonean Leone; format amounts like "Le 45,000".
-Keep ordinary answers short and conversational — one or two sentences, like a quick reply from a coworker in a chat. Reports are the deliberate exception: structured and a bit longer, but still scannable, not an essay.`;
+Keep ordinary answers short and conversational — one or two sentences, like a quick reply from a coworker in a chat. Reports (and anything being printed) are the deliberate exception: structured and a bit longer, but still scannable, not an essay.`;
 
     const messages = [...sanitizeHistory(history), { role: 'user', content: question.trim() }];
 
