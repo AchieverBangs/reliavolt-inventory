@@ -220,6 +220,7 @@ async function recordSale() {
 
         showToast(`Sale recorded! Receipt: ${sale.receipt_no}`, 'success');
         renderRecentSales();
+        renderSalesByProduct();
         resetSaleForm();
         populateProductSelect();
     } catch (err) {
@@ -304,6 +305,67 @@ function renderRecentSales() {
     }).join('');
 }
 
+// ===== SALES BY PRODUCT =====
+// A per-product summary of every sale ever recorded (not just the current page/date
+// filter above) — grouped by product_name rather than product_id, since product_id goes
+// null if the product itself is later deleted, but product_name stays on the sale either
+// way. "History" shows every one of that product's sales, oldest changes visible by date.
+function renderSalesByProduct() {
+    const tbody = document.getElementById('salesByProductBody');
+    if (!tbody) return;
+
+    const query = (document.getElementById('salesByProductSearch')?.value || '').toLowerCase().trim();
+
+    const groups = {};
+    for (const s of _sales) {
+        const name = s.product_name || 'Unknown';
+        if (!groups[name]) groups[name] = { name, qty: 0, total: 0 };
+        groups[name].qty   += Number(s.qty) || 0;
+        groups[name].total += Number(s.total) || 0;
+    }
+
+    let rows = Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+    if (query) rows = rows.filter(r => r.name.toLowerCase().includes(query));
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🛒</span><p>${_sales.length ? 'No products match.' : 'No sales recorded yet.'}</p></div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => `<tr>
+        <td><strong>${escHtml(r.name)}</strong></td>
+        <td>${r.qty}</td>
+        <td><strong>${formatCurrency(r.total)}</strong></td>
+        <td><button class="btn btn-secondary btn-sm" data-product-history="${escHtml(r.name)}">📋 History</button></td>
+    </tr>`).join('');
+
+    tbody.querySelectorAll('[data-product-history]').forEach(btn => {
+        btn.addEventListener('click', () => openProductSalesHistory(btn.dataset.productHistory));
+    });
+}
+
+function openProductSalesHistory(productName) {
+    setInner('productHistoryName', productName);
+    const tbody = document.getElementById('productHistoryBody');
+    if (tbody) {
+        const sales = _sales
+            .filter(s => (s.product_name || 'Unknown') === productName)
+            .sort((a, b) => new Date(b.sale_date) - new Date(a.sale_date));
+
+        tbody.innerHTML = sales.length
+            ? sales.map(s => `<tr>
+                <td>${formatDateTime(s.sale_date)}</td>
+                <td><strong>${escHtml(s.receipt_no)}</strong></td>
+                <td>${escHtml(s.customer_name)}</td>
+                <td>${s.qty}</td>
+                <td><strong>${formatCurrency(s.total)}</strong></td>
+                <td><span class="badge badge-secondary">${escHtml(s.payment_method || 'Cash')}</span></td>
+            </tr>`).join('')
+            : `<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales found.</p></div></td></tr>`;
+    }
+    openModal('productHistoryModal');
+}
+
 function renderSalesPagination(totalCount, totalPages) {
     const container = document.getElementById('salesPagination');
     if (!container) return;
@@ -338,6 +400,7 @@ async function deleteSale(id) {
             _sales = _sales.filter(s => s.id !== id);
             showToast(`Receipt ${sale.receipt_no} deleted.`, 'warning');
             renderRecentSales();
+            renderSalesByProduct();
         } catch (err) {
             showToast(err.message, 'error');
         }
@@ -425,6 +488,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateProductSelect();
     populateCustomerDatalist();
     renderRecentSales();
+    renderSalesByProduct();
     updateAmountDisplay();
     updateReceiptPreview();
 
@@ -466,6 +530,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('recentSalesDateFilter').value = '';
         renderRecentSales();
     });
+    document.getElementById('salesByProductSearch')?.addEventListener('input', renderSalesByProduct);
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
     document.getElementById('newSaleBtn')?.addEventListener('click', () => {
         resetSaleForm();

@@ -274,6 +274,38 @@
 
             </div>
 
+            <!-- Sales by Product -->
+            <div class="recent-sales-section">
+                <div class="section-header">
+                    <div class="section-title">Sales by Product</div>
+                </div>
+                <div class="page-toolbar" style="margin-bottom:0.75rem;">
+                    <div class="toolbar-group">
+                        <div class="search-bar search-wide">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="salesByProductSearch" placeholder="Search a product, e.g. V90...">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Qty Sold</th>
+                                    <th>Total Revenue</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesByProductBody">
+                                <tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales recorded yet.</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- Recent Sales -->
             <div class="recent-sales-section">
                 <div class="section-header">
@@ -380,6 +412,38 @@
         <div class="modal-footer">
             <button class="btn btn-secondary modal-close">Cancel</button>
             <button class="btn btn-primary" id="saveEditSaleBtn">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Product Sales History Modal -->
+<div class="modal-overlay" id="productHistoryModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Sales History — <span id="productHistoryName">—</span></h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Receipt No</th>
+                            <th>Customer</th>
+                            <th>Qty</th>
+                            <th>Total</th>
+                            <th>Payment</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productHistoryBody">
+                        <tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🛒</span><p>No sales found.</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
         </div>
     </div>
 </div>
