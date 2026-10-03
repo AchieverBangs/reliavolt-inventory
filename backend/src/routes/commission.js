@@ -8,6 +8,12 @@ const SALE_ROLES = ['Admin', 'Manager', 'Cashier'];
 
 // GET /api/commission/pending-mine — past (already-ended) months where the caller earned
 // commission but hasn't confirmed receiving it yet.
+// Uses earned_commission (not the raw commission column) throughout this file, so a
+// credit sale only counts once it's actually been paid off — see schema.sql.
+// Known limitation: earned_commission is attributed to the sale's own sale_date, so if a
+// credit sale from an already-confirmed month gets paid down later, that newly-earned
+// slice doesn't reopen the old settlement or trigger a fresh confirm prompt. Acceptable
+// for now — the common case is paying off a credit sale within the same month or two.
 router.get('/pending-mine', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
         const now = new Date();
@@ -16,13 +22,13 @@ router.get('/pending-mine', verifyToken, requireRole(...SALE_ROLES), async (req,
              FROM (
                 SELECT EXTRACT(YEAR FROM sale_date)::int AS year,
                        EXTRACT(MONTH FROM sale_date)::int AS month,
-                       SUM(commission) AS total
+                       SUM(earned_commission) AS total
                 FROM sales
                 WHERE commission_user_id = $1
                   AND make_date(EXTRACT(YEAR FROM sale_date)::int, EXTRACT(MONTH FROM sale_date)::int, 1)
                         < make_date($2::int, $3::int, 1)
                 GROUP BY 1, 2
-                HAVING SUM(commission) > 0
+                HAVING SUM(earned_commission) > 0
              ) sub
              LEFT JOIN commission_settlements cs
                 ON cs.user_id = $1 AND cs.year = sub.year AND cs.month = sub.month
@@ -47,7 +53,7 @@ router.post('/confirm-mine', verifyToken, requireRole(...SALE_ROLES), async (req
     }
     try {
         const { rows: totalRows } = await pool.query(
-            `SELECT COALESCE(SUM(commission), 0) AS total FROM sales
+            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
              WHERE commission_user_id = $1
                AND EXTRACT(YEAR FROM sale_date) = $2 AND EXTRACT(MONTH FROM sale_date) = $3`,
             [req.user.id, year, month]
@@ -82,13 +88,13 @@ router.get('/pending-admin', verifyToken, requireRole('Admin'), async (req, res)
                 SELECT commission_user_id AS user_id,
                        EXTRACT(YEAR FROM sale_date)::int AS year,
                        EXTRACT(MONTH FROM sale_date)::int AS month,
-                       SUM(commission) AS total
+                       SUM(earned_commission) AS total
                 FROM sales
                 WHERE commission_user_id IS NOT NULL
                   AND make_date(EXTRACT(YEAR FROM sale_date)::int, EXTRACT(MONTH FROM sale_date)::int, 1)
                         < make_date($1::int, $2::int, 1)
                 GROUP BY 1, 2, 3
-                HAVING SUM(commission) > 0
+                HAVING SUM(earned_commission) > 0
              ) sub
              JOIN users u ON u.id = sub.user_id
              LEFT JOIN commission_settlements cs
@@ -115,7 +121,7 @@ router.post('/:userId/confirm-admin', verifyToken, requireRole('Admin'), async (
     }
     try {
         const { rows: totalRows } = await pool.query(
-            `SELECT COALESCE(SUM(commission), 0) AS total FROM sales
+            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
              WHERE commission_user_id = $1
                AND EXTRACT(YEAR FROM sale_date) = $2 AND EXTRACT(MONTH FROM sale_date) = $3`,
             [userId, year, month]

@@ -119,6 +119,22 @@ CREATE INDEX IF NOT EXISTS idx_sales_commission_user_id ON sales(commission_user
 -- can't be extended to an anonymous walk-in.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS credit_amount NUMERIC(14,2) NOT NULL DEFAULT 0;
 
+-- How much of this specific sale's credit_amount has been paid back so far (credit
+-- payments are allocated across a customer's open credit sales oldest-first — see
+-- POST /api/customers/:id/credit-payments). 0 for a sale with no credit portion.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS credit_amount_paid NUMERIC(14,2) NOT NULL DEFAULT 0;
+
+-- Commission actually earned so far on this sale: the full flat commission for a normal
+-- fully-paid sale (credit_amount = 0, so this reduces to exactly `commission`), but only
+-- the paid fraction of it for a credit sale — a salesperson earns commission as the money
+-- actually comes in, not upfront on a balance the customer hasn't paid yet. Recomputes
+-- automatically whenever commission, total, credit_amount, or credit_amount_paid change
+-- (e.g. the product-edit backfill below, or a new credit payment), so nothing else needs
+-- to keep it in sync by hand — every commission total elsewhere should SUM this column,
+-- not the raw `commission` column.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS earned_commission NUMERIC(14,2)
+    GENERATED ALWAYS AS (commission * LEAST(1, (total - credit_amount + credit_amount_paid) / NULLIF(total, 0))) STORED;
+
 -- Each payment a customer makes toward their running credit_balance (see customers
 -- above). Independent of any one sale — a payment just pays down the running total,
 -- the same way a shopkeeper's paper ledger would.

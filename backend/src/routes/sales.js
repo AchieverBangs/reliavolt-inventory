@@ -69,10 +69,10 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
     try {
         const { rows: mine } = await pool.query(
             `SELECT
-                COALESCE(SUM(commission) FILTER (WHERE sale_date >= CURRENT_DATE), 0) AS today,
-                COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
-                COALESCE(SUM(commission) FILTER (WHERE sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
+                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= CURRENT_DATE), 0) AS today,
+                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
+                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
              FROM sales WHERE commission_user_id = $1`,
             [req.user.id]
         );
@@ -85,7 +85,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
 
         if (year) {
             const { rows: selected } = await pool.query(
-                `SELECT COALESCE(SUM(commission) FILTER (
+                `SELECT COALESCE(SUM(earned_commission) FILTER (
                     WHERE EXTRACT(YEAR FROM sale_date) = $2
                       AND ($3::int IS NULL OR EXTRACT(MONTH FROM sale_date) = $3)
                  ), 0) AS selected
@@ -110,11 +110,11 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
         if (req.user.role === 'Admin') {
             const { rows: byStaff } = await pool.query(
                 `SELECT u.id AS user_id, u.name, u.username, u.role,
-                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= CURRENT_DATE), 0) AS today,
-                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
-                    COALESCE(SUM(s.commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
-                    COALESCE(SUM(s.commission) FILTER (
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= CURRENT_DATE), 0) AS today,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
+                    COALESCE(SUM(s.earned_commission) FILTER (
                         WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.sale_date) = $2
                           AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.sale_date) = $3)
                     ), 0) AS selected,
@@ -368,18 +368,21 @@ router.delete('/:id', verifyToken, requireRole('Admin'), async (req, res) => {
         await client.query('BEGIN');
 
         const { rows: existing } = await client.query(
-            'SELECT receipt_no, customer_id, credit_amount FROM sales WHERE id = $1 FOR UPDATE',
+            'SELECT receipt_no, customer_id, credit_amount, credit_amount_paid FROM sales WHERE id = $1 FOR UPDATE',
             [req.params.id]
         );
         if (!existing[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
 
         // This sale's contribution to the customer's running credit balance never
-        // happened either, once the sale itself is gone — floored at 0 since any payments
-        // already made since can't be un-attributed to a specific sale.
-        if (existing[0].customer_id && parseFloat(existing[0].credit_amount) > 0) {
+        // happened either, once the sale itself is gone — but only the portion still
+        // outstanding (credit_amount minus whatever's already been paid toward it), since
+        // the paid portion already left the balance when that payment was recorded and
+        // subtracting it again would double-count. Floored at 0 regardless.
+        const stillOwed = parseFloat(existing[0].credit_amount) - parseFloat(existing[0].credit_amount_paid);
+        if (existing[0].customer_id && stillOwed > 0) {
             await client.query(
                 'UPDATE customers SET credit_balance = GREATEST(0, credit_balance - $1) WHERE id = $2',
-                [existing[0].credit_amount, existing[0].customer_id]
+                [stillOwed, existing[0].customer_id]
             );
         }
 

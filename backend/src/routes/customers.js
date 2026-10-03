@@ -152,6 +152,28 @@ router.post('/:id/credit-payments', verifyToken, requireRole('Admin', 'Manager',
         const newBalance = parseFloat(customer.credit_balance) - amt;
         await client.query('UPDATE customers SET credit_balance = $1 WHERE id = $2', [newBalance, customer.id]);
 
+        // Allocate this payment across the customer's still-open credit sales, oldest
+        // first — each sale's earned_commission (a generated column) recomputes
+        // automatically as its credit_amount_paid goes up, so the salesperson's
+        // commission on that sale builds up as it actually gets paid off, not upfront.
+        const { rows: openSales } = await client.query(
+            `SELECT id, credit_amount, credit_amount_paid FROM sales
+             WHERE customer_id = $1 AND credit_amount > credit_amount_paid
+             ORDER BY sale_date ASC, id ASC
+             FOR UPDATE`,
+            [customer.id]
+        );
+        let remaining = amt;
+        for (const sale of openSales) {
+            if (remaining <= 0) break;
+            const owed = parseFloat(sale.credit_amount) - parseFloat(sale.credit_amount_paid);
+            const apply = Math.min(remaining, owed);
+            if (apply > 0) {
+                await client.query('UPDATE sales SET credit_amount_paid = credit_amount_paid + $1 WHERE id = $2', [apply, sale.id]);
+                remaining -= apply;
+            }
+        }
+
         const { rows: payment } = await client.query(
             `INSERT INTO credit_payments (customer_id, amount, note, shop_id, user_id, paid_at)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
