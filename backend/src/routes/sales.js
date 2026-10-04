@@ -30,6 +30,20 @@ function parseSaleDate(sale_date, keepTimeFrom = new Date()) {
     return new Date(y, m - 1, d, keepTimeFrom.getHours(), keepTimeFrom.getMinutes(), keepTimeFrom.getSeconds());
 }
 
+// Normally a sale's commission counts toward the month it actually happened in
+// (saleDate). The one exception: if that month's commission has already been marked
+// paid out for this earner (commission_settlements.admin_confirmed_at), a sale backdated
+// into it now would otherwise silently reopen an already-settled month. Instead, its
+// commission counts toward right now — see the commission_date column in schema.sql.
+async function resolveCommissionDate(client, commissionUserId, saleDate) {
+    const { rows } = await client.query(
+        `SELECT 1 FROM commission_settlements
+         WHERE user_id = $1 AND year = $2 AND month = $3 AND admin_confirmed_at IS NOT NULL`,
+        [commissionUserId, saleDate.getFullYear(), saleDate.getMonth() + 1]
+    );
+    return rows.length ? new Date() : saleDate;
+}
+
 // GET /api/sales  (optional ?from=&to=&product_id=&payment_method= filters; non-Admins scoped to their own shop)
 // A Credit sale with a balance still outstanding is deliberately left out — it isn't a
 // "sale" yet in the revenue sense, it's still just a tab the customer owes. It only shows
@@ -73,10 +87,10 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
     try {
         const { rows: mine } = await pool.query(
             `SELECT
-                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= CURRENT_DATE), 0) AS today,
-                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
-                COALESCE(SUM(earned_commission) FILTER (WHERE sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
+                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= CURRENT_DATE), 0) AS today,
+                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
+                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
              FROM sales WHERE commission_user_id = $1`,
             [req.user.id]
         );
@@ -90,8 +104,8 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
         if (year) {
             const { rows: selected } = await pool.query(
                 `SELECT COALESCE(SUM(earned_commission) FILTER (
-                    WHERE EXTRACT(YEAR FROM sale_date) = $2
-                      AND ($3::int IS NULL OR EXTRACT(MONTH FROM sale_date) = $3)
+                    WHERE EXTRACT(YEAR FROM commission_date) = $2
+                      AND ($3::int IS NULL OR EXTRACT(MONTH FROM commission_date) = $3)
                  ), 0) AS selected
                  FROM sales WHERE commission_user_id = $1`,
                 [req.user.id, year, month]
@@ -114,13 +128,13 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
         if (req.user.role === 'Admin') {
             const { rows: byStaff } = await pool.query(
                 `SELECT u.id AS user_id, u.name, u.username, u.role,
-                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= CURRENT_DATE), 0) AS today,
-                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
-                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.sale_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= CURRENT_DATE), 0) AS today,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
                     COALESCE(SUM(s.earned_commission) FILTER (
-                        WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.sale_date) = $2
-                          AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.sale_date) = $3)
+                        WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.commission_date) = $2
+                          AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.commission_date) = $3)
                     ), 0) AS selected,
                     cs.staff_confirmed_at, cs.admin_confirmed_at
                  FROM users u
@@ -247,13 +261,15 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             creditAmount = Math.max(0, total - paidNow);
         }
 
+        const commissionDate = await resolveCommissionDate(client, commissionUserId, saleDate);
+
         const { rows } = await client.query(
             `INSERT INTO sales
              (receipt_no, product_id, product_name, customer_id, customer_name, qty,
-              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date, credit_amount)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date, credit_amount, commission_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
             [receiptNo, product_id, product.name, resolvedCustomerId, cName,
-             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate, creditAmount]
+             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate, creditAmount, commissionDate]
         );
 
         if (creditAmount > 0) {
@@ -348,9 +364,19 @@ router.put('/:id', verifyToken, requirePermission('sales', 'edit'), async (req, 
 
         const newPaymentMethod = payment_method !== undefined ? payment_method : sale.payment_method;
 
+        // Re-resolve commission_date only if the date itself actually changed — editing
+        // just the customer name/payment method shouldn't re-trigger this check and risk
+        // reclassifying a sale's commission just because its month happens to have been
+        // settled since it was created.
+        let newCommissionDate = sale.commission_date;
+        if (sale_date !== undefined &&
+            new Date(newSaleDate).toISOString().slice(0, 10) !== new Date(sale.sale_date).toISOString().slice(0, 10)) {
+            newCommissionDate = await resolveCommissionDate(client, sale.commission_user_id, newSaleDate);
+        }
+
         const { rows: updated } = await client.query(
-            `UPDATE sales SET sale_date=$1, payment_method=$2, customer_id=$3, customer_name=$4 WHERE id=$5 RETURNING *`,
-            [newSaleDate, newPaymentMethod, resolvedCustomerId, cName, req.params.id]
+            `UPDATE sales SET sale_date=$1, payment_method=$2, customer_id=$3, customer_name=$4, commission_date=$5 WHERE id=$6 RETURNING *`,
+            [newSaleDate, newPaymentMethod, resolvedCustomerId, cName, newCommissionDate, req.params.id]
         );
 
         await client.query('COMMIT');

@@ -273,12 +273,13 @@ async function runTool(name, input, req) {
 
         case 'get_commission_summary': {
             // earned_commission (not the raw commission column) — on a credit sale,
-            // commission builds up only as the customer actually pays it down.
+            // commission builds up only as the customer actually pays it down. Bucketed
+            // by commission_date, not sale_date — see resolveCommissionDate in sales.js.
             if (!admin) {
                 const { rows } = await pool.query(
                     `SELECT COALESCE(SUM(earned_commission), 0) AS total_commission, COUNT(*)::int AS sales_count
                      FROM sales
-                     WHERE commission_user_id = $1 AND sale_date >= $2 AND sale_date < ($3::date + INTERVAL '1 day')`,
+                     WHERE commission_user_id = $1 AND commission_date >= $2 AND commission_date < ($3::date + INTERVAL '1 day')`,
                     [req.user.id, input.from, input.to]
                 );
                 return { staff: req.user.name, ...rows[0] };
@@ -287,7 +288,7 @@ async function runTool(name, input, req) {
                 `SELECT u.name, COALESCE(SUM(s.earned_commission), 0) AS total_commission, COUNT(s.id)::int AS sales_count
                  FROM users u
                  LEFT JOIN sales s ON s.commission_user_id = u.id
-                     AND s.sale_date >= $1 AND s.sale_date < ($2::date + INTERVAL '1 day')
+                     AND s.commission_date >= $1 AND s.commission_date < ($2::date + INTERVAL '1 day')
                  WHERE ($3::text IS NULL OR u.name ILIKE $3)
                  GROUP BY u.name
                  ORDER BY total_commission DESC`,

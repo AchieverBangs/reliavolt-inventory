@@ -181,6 +181,18 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS credit_amount_paid NUMERIC(14,2) NOT 
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS earned_commission NUMERIC(14,2)
     GENERATED ALWAYS AS (commission * LEAST(1, (total - credit_amount + credit_amount_paid) / NULLIF(total, 0))) STORED;
 
+-- Which month's commission this sale actually counts toward — normally identical to
+-- sale_date, EXCEPT when a sale gets backdated (or its date edited) into a month whose
+-- commission for this earner has already been marked paid (commission_settlements.
+-- admin_confirmed_at). In that one case it's set to "now" instead (see
+-- resolveCommissionDate in sales.js), so a late/backdated entry adds its commission to
+-- the CURRENT month rather than silently reopening a month that was already settled and
+-- paid out. Every commission query (commission.js, /api/sales/commission/summary,
+-- ai.js get_commission_summary) buckets by this column, not sale_date — sale_date keeps
+-- meaning "when the sale really happened" for everything else (Reports, stock history,
+-- receipts).
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_date TIMESTAMP;
+
 -- Each payment a customer makes toward their running credit_balance (see customers
 -- above). Independent of any one sale — a payment just pays down the running total,
 -- the same way a shopkeeper's paper ledger would.
@@ -414,6 +426,27 @@ CREATE TABLE IF NOT EXISTS activity_log (
     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);
+
+-- Backfill for sales recorded before commission_date existed: the ordinary case is just
+-- sale_date, copied straight across (safe to rerun — only touches rows still NULL).
+UPDATE sales SET commission_date = sale_date WHERE commission_date IS NULL;
+
+-- Retroactive correction, one time per affected sale (safe to rerun — it only ever
+-- recomputes the same answer): a sale whose activity-log "create" entry happened AFTER
+-- its own month's commission was already marked paid for that earner must have been
+-- backdated in after the fact — so its commission should count toward the month it was
+-- actually entered (the activity log's created_at), not the month it was backdated to.
+-- A sale with no matching activity-log row (demo data, or a logging hiccup) is left on
+-- sale_date — there's no way to recover when it was really entered.
+UPDATE sales s
+SET commission_date = al.created_at
+FROM commission_settlements cs, activity_log al
+WHERE s.commission_user_id = cs.user_id
+  AND EXTRACT(YEAR FROM s.sale_date)::int = cs.year
+  AND EXTRACT(MONTH FROM s.sale_date)::int = cs.month
+  AND cs.admin_confirmed_at IS NOT NULL
+  AND al.entity_type = 'sale' AND al.action = 'create' AND al.entity_id = s.id
+  AND al.created_at > cs.admin_confirmed_at;
 
 -- Deliveries
 CREATE TABLE IF NOT EXISTS deliveries (
