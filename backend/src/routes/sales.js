@@ -402,7 +402,7 @@ router.delete('/:id', verifyToken, requirePermission('sales', 'delete'), async (
         await client.query('BEGIN');
 
         const { rows: existing } = await client.query(
-            'SELECT receipt_no, customer_id, credit_amount, credit_amount_paid, payment_method, shop_id FROM sales WHERE id = $1 FOR UPDATE',
+            'SELECT receipt_no, customer_id, credit_amount, credit_amount_paid, payment_method, shop_id, product_id, qty FROM sales WHERE id = $1 FOR UPDATE',
             [req.params.id]
         );
         if (!existing[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
@@ -429,6 +429,27 @@ router.delete('/:id', verifyToken, requirePermission('sales', 'delete'), async (
                 'UPDATE customers SET credit_balance = GREATEST(0, credit_balance - $1) WHERE id = $2',
                 [stillOwed, existing[0].customer_id]
             );
+        }
+
+        // The stock this sale took off the shelf never actually left either, once the
+        // sale itself is deleted — restore it, same as the credit balance above. Logged
+        // as its own stock_movements row so the product's history still shows exactly
+        // where the quantity came back from. product_id can be null if the product was
+        // itself deleted later, in which case there's nothing left to restore it to.
+        if (existing[0].product_id) {
+            const { rows: prodRows } = await client.query(
+                'SELECT quantity FROM products WHERE id = $1 FOR UPDATE',
+                [existing[0].product_id]
+            );
+            if (prodRows[0]) {
+                const restoredQty = prodRows[0].quantity + existing[0].qty;
+                await client.query('UPDATE products SET quantity = $1 WHERE id = $2', [restoredQty, existing[0].product_id]);
+                await client.query(
+                    `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id)
+                     VALUES ($1, 'adjustment', $2, $3, $4, $5)`,
+                    [existing[0].product_id, existing[0].qty, restoredQty, `Restored — deleted sale, receipt ${existing[0].receipt_no}`, req.user.id]
+                );
+            }
         }
 
         await client.query('DELETE FROM sales WHERE id = $1', [req.params.id]);
