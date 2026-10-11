@@ -374,3 +374,35 @@ a.sale-item-link:hover .sale-name { color: var(--primary); }
     .stat-value { font-size: 1.4rem; }
     .quick-actions { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===== HIDE / SHOW AMOUNTS ===== */
+.btn-money-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-money-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.btn-money-toggle .icon-eye-off { display: none; }
+.btn-money-toggle[aria-pressed="true"] .icon-eye { display: none; }
+.btn-money-toggle[aria-pressed="true"] .icon-eye-off { display: inline; }
+
+.money-hidden .stat-value.currency,
+.money-hidden .money {
+    filter: blur(8px);
+    user-select: none;
+    transition: filter 0.15s;
+}
+
+@media (max-width: 768px) {
+    .btn-money-toggle .money-toggle-label { display: none; }
+    .btn-money-toggle { padding: 0.45rem; border-radius: 50%; }
+}

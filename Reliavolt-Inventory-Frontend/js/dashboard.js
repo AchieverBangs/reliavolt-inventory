@@ -51,8 +51,8 @@ async function renderProductsByShop() {
             <td>${escHtml(s.shop_name)}</td>
             <td>${s.product_count}</td>
             <td>${s.total_quantity}</td>
-            <td>${formatCurrency(s.total_cost_value)}</td>
-            <td>${formatCurrency(s.total_selling_value)}</td>
+            <td class="money">${formatCurrency(s.total_cost_value)}</td>
+            <td class="money">${formatCurrency(s.total_selling_value)}</td>
         </tr>`).join('') || `<tr><td colspan="5"><div class="empty-state"><span class="empty-icon">🏬</span><p>No shops found.</p></div></td></tr>`;
         setEl('shopSummaryTotalCount',   summary.grandTotal.product_count);
         setEl('shopSummaryTotalQty',     summary.grandTotal.total_quantity);
@@ -134,7 +134,7 @@ function renderSalesByShopResult() {
     const label = month ? `${MONTH_NAMES[Number(month) - 1]} ${year}` : (year ? `All of ${year}` : 'All Time');
 
     result.innerHTML = `<strong>${escHtml(shop?.name || '—')}</strong> — ${escHtml(label)}: ` +
-        `<span style="color:var(--primary);font-weight:700;font-size:1.3rem;">${formatCurrency(total)}</span> ` +
+        `<span class="money" style="color:var(--primary);font-weight:700;font-size:1.3rem;">${formatCurrency(total)}</span> ` +
         `<span style="color:var(--text-light);font-size:0.85rem;">(${filtered.length} sale${filtered.length !== 1 ? 's' : ''})</span>`;
 }
 
@@ -212,11 +212,11 @@ async function renderCommission() {
                 tbody.innerHTML = summary.byStaff.map(s => `<tr>
                     <td><strong>${escHtml(s.name)}</strong> <span style="color:var(--text-light);font-size:0.8rem;">@${escHtml(s.username)}</span></td>
                     <td><span class="role-badge ${ROLE_BADGE_CLASS[s.role] || 'role-cashier'}">${escHtml(s.role)}</span></td>
-                    <td>${formatCurrency(s.today)}</td>
-                    <td>${formatCurrency(s.week)}</td>
-                    <td>${formatCurrency(s.month)}</td>
-                    <td>${formatCurrency(s.year)}</td>
-                    <td>${formatCurrency(s.selected || 0)}</td>
+                    <td class="money">${formatCurrency(s.today)}</td>
+                    <td class="money">${formatCurrency(s.week)}</td>
+                    <td class="money">${formatCurrency(s.month)}</td>
+                    <td class="money">${formatCurrency(s.year)}</td>
+                    <td class="money">${formatCurrency(s.selected || 0)}</td>
                     <td>${renderStaffPaymentStatus(s, year, month)}</td>
                 </tr>`).join('') || `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">💵</span><p>No staff found.</p></div></td></tr>`;
 
@@ -429,7 +429,7 @@ function renderRecentSalesList() {
                 <div class="sale-product">${escHtml(s.product_name)}</div>
             </div>
             <div style="text-align:right;">
-                <div class="sale-amount">${formatCurrency(s.total)}</div>
+                <div class="sale-amount money">${formatCurrency(s.total)}</div>
                 <div class="sale-time">${formatDate(s.sale_date)}</div>
             </div>
         </a>`;
@@ -647,7 +647,32 @@ function escHtml(str) {
 }
 
 // ===== INIT =====
+// ===== HIDE / SHOW AMOUNTS =====
+// Money figures start hidden (blurred) so they aren't on show to anyone looking at the
+// screen; the eye button in the header reveals them, and the choice is remembered.
+function applyMoneyVisibility(show) {
+    document.documentElement.classList.toggle('money-hidden', !show);
+    const btn = document.getElementById('moneyToggle');
+    if (!btn) return;
+    const label = show ? 'Hide amounts' : 'Show amounts';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.title = label;
+    btn.querySelector('.money-toggle-label').textContent = label;
+}
+
+function initMoneyToggle() {
+    let show = false;
+    try { show = localStorage.getItem('rv_show_money') === '1'; } catch (e) {}
+    applyMoneyVisibility(show);
+    document.getElementById('moneyToggle')?.addEventListener('click', () => {
+        show = !show;
+        try { localStorage.setItem('rv_show_money', show ? '1' : '0'); } catch (e) {}
+        applyMoneyVisibility(show);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    initMoneyToggle();
     const isDriver = getCurrentUserRole() === 'Delivery Person';
     const mainEl   = document.getElementById('mainDashboard');
     const driverEl = document.getElementById('driverDashboard');
