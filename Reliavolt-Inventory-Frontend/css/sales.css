@@ -224,19 +224,6 @@
     margin-top: 1.5rem;
 }
 
-/* ===== PRINT STYLES ===== */
-@media print {
-    body * { visibility: hidden; }
-    .receipt-paper, .receipt-paper * { visibility: visible; }
-    .receipt-paper {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        font-size: 12px;
-    }
-}
-
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1100px) {
     .sales-layout { grid-template-columns: 1fr; }

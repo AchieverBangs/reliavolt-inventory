@@ -181,7 +181,7 @@
                                     <span class="amount-value" id="displayProfit">Le 0</span>
                                 </div>
                                 <div class="amount-row total-row">
-                                    <span class="amount-label">Total Amount</span>
+                                    <span class="amount-label">Invoice Total</span>
                                     <span class="amount-value" id="displayTotal">Le 0</span>
                                 </div>
                                 <div class="amount-row" id="creditBalanceRow" style="display:none;">
@@ -191,6 +191,9 @@
                             </div>
 
                             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                                <button class="btn btn-primary btn-lg" id="addToInvoiceBtn" style="flex:1;">
+                                    ➕ Add to Invoice
+                                </button>
                                 <button class="btn btn-success btn-lg" id="recordSaleBtn" style="flex:1;">
                                     ✅ Record Sale
                                 </button>
@@ -207,66 +210,14 @@
                 <div>
                     <div class="receipt-card">
                         <div class="receipt-header">
-                            <h3>🧾 Receipt Preview</h3>
+                            <h3>🧾 Invoice</h3>
                         </div>
                         <div class="receipt-preview">
-                            <div class="receipt-paper">
-                                <div class="receipt-brand">
-                                    <img src="images/logo.svg" class="receipt-logo" alt="Reliavolt Supply">
-                                    <strong class="r-title" id="receiptCompanyName">Reliavolt Supply</strong>
-                                    <span class="r-slogan">"We Go For Value"</span>
-                                </div>
-
-                                <div class="receipt-meta">
-                                    <div class="receipt-meta-row">
-                                        <span>Receipt No:</span>
-                                        <strong id="receiptNo">—</strong>
-                                    </div>
-                                    <div class="receipt-meta-row">
-                                        <span>Date:</span>
-                                        <span id="receiptDate">—</span>
-                                    </div>
-                                    <div class="receipt-meta-row">
-                                        <span>Customer:</span>
-                                        <span id="receiptCustomer">—</span>
-                                    </div>
-                                    <div class="receipt-meta-row">
-                                        <span>Payment:</span>
-                                        <span id="receiptPayment">Cash</span>
-                                    </div>
-                                </div>
-
-                                <hr class="receipt-divider">
-
-                                <div class="receipt-item-row">
-                                    <span id="receiptProductName">—</span>
-                                    <span id="receiptQty">1</span>
-                                </div>
-                                <div class="receipt-item-row">
-                                    <span>@ <span id="receiptUnitPrice">Le 0</span></span>
-                                </div>
-
-                                <hr class="receipt-divider">
-
-                                <div class="receipt-totals">
-                                    <div class="receipt-meta-row">
-                                        <span>Subtotal:</span>
-                                        <span id="receiptSubtotal">Le 0</span>
-                                    </div>
-                                    <div class="receipt-total-row" style="margin-top:0.4rem;">
-                                        <span>TOTAL:</span>
-                                        <strong id="receiptTotal">Le 0</strong>
-                                    </div>
-                                </div>
-
-                                <div class="receipt-footer-text" id="receiptFooterText">
-                                    Thank you for your business!
-                                </div>
-                            </div>
+                            <div class="receipt-paper" id="invoicePreview"></div>
                         </div>
                         <div class="receipt-actions">
                             <button class="btn btn-primary" id="printReceiptBtn" style="flex:1;">
-                                🖨️ Print Receipt
+                                🖨️ Print Invoice
                             </button>
                         </div>
                     </div>
@@ -475,6 +426,7 @@
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/ai-chat.js"></script>
+<script src="js/invoice.js"></script>
 <script src="js/sales.js"></script>
 </body>
 </html>

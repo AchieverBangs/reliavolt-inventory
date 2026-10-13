@@ -10,10 +10,14 @@ async function loadSettingsForm() {
     const companyEl  = document.getElementById('settingCompanyName');
     const currencyEl = document.getElementById('settingCurrency');
     const footerEl   = document.getElementById('settingReceiptFooter');
+    const addressEl  = document.getElementById('settingCompanyAddress');
+    const phoneEl    = document.getElementById('settingCompanyPhone');
 
     if (companyEl)  companyEl.value  = settings.company_name    || 'Reliavolt Supply';
     if (currencyEl) currencyEl.value = settings.currency         || 'Le';
     if (footerEl)   footerEl.value   = settings.receipt_footer   || '"We Go For Value" | Thank you for your business!';
+    if (addressEl)  addressEl.value  = settings.company_address  || '';
+    if (phoneEl)    phoneEl.value    = settings.company_phone    || '';
 
     applyThemeHighlight(settings.theme || localStorage.getItem('rv_theme') || 'light');
 }
@@ -64,9 +68,11 @@ async function saveSettingsForm() {
     const company_name   = document.getElementById('settingCompanyName').value.trim()   || 'Reliavolt Supply';
     const currency        = document.getElementById('settingCurrency').value              || 'Le';
     const receipt_footer  = document.getElementById('settingReceiptFooter').value.trim() || 'Thank you for your business!';
+    const company_address = document.getElementById('settingCompanyAddress')?.value.trim() || '';
+    const company_phone   = document.getElementById('settingCompanyPhone')?.value.trim()   || '';
 
     try {
-        await api.put('/api/settings', { company_name, currency, receipt_footer, theme });
+        await api.put('/api/settings', { company_name, currency, receipt_footer, theme, company_address, company_phone });
 
         // Update local caches used by other pages
         localStorage.setItem('rv_currency',     currency);

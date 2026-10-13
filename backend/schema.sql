@@ -193,6 +193,13 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS earned_commission NUMERIC(14,2)
 -- receipts).
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_date TIMESTAMP;
 
+-- Groups the rows of one multi-item invoice (each product line is still its own sales row
+-- with its own receipt_no). It is the first line's receipt_no; older single-item sales
+-- are their own invoice.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(50);
+UPDATE sales SET invoice_no = receipt_no WHERE invoice_no IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sales_invoice_no ON sales(invoice_no);
+
 -- Each payment a customer makes toward their running credit_balance (see customers
 -- above). Independent of any one sale — a payment just pays down the running total,
 -- the same way a shopkeeper's paper ledger would.
@@ -497,6 +504,10 @@ CREATE TABLE IF NOT EXISTS settings (
 
 -- Seed default settings row
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Printed in the invoice header under the company name.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_address TEXT DEFAULT '';
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_phone   VARCHAR(255) DEFAULT '';
 
 -- Add email to users (safe to run again)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);

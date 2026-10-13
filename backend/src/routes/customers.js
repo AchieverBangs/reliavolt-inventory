@@ -98,7 +98,7 @@ router.get('/:id/credit-history', verifyToken, async (req, res) => {
         }
 
         const { rows: sales } = await pool.query(
-            `SELECT 'sale' AS type, id, receipt_no, product_name, qty, credit_amount AS amount, sale_date AS at
+            `SELECT 'sale' AS type, id, receipt_no, COALESCE(invoice_no, receipt_no) AS invoice_no, product_name, qty, credit_amount AS amount, sale_date AS at
              FROM sales WHERE customer_id = $1 AND credit_amount > 0`,
             [req.params.id]
         );

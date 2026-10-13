@@ -141,7 +141,10 @@ function renderCreditHistoryBody() {
                 <td><span class="badge badge-warning">Credit Sale</span></td>
                 <td>${escHtml(entry.product_name)} &times; ${entry.qty} <span style="color:var(--text-light);">(${escHtml(entry.receipt_no)})</span></td>
                 <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
-                <td>${canReverse ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : '—'}</td>
+                <td><div class="action-cell">
+                    <button class="btn btn-secondary btn-sm" onclick="printInvoiceByNo('${escHtml(entry.invoice_no || entry.receipt_no)}')">🧾 Invoice</button>
+                    ${canReverse ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : ''}
+                </div></td>
             </tr>`;
         }
         return `<tr>

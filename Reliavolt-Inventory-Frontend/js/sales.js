@@ -22,6 +22,13 @@ let currentSale = {
     receiptNo:     '—',
 };
 
+// Lines already added to the invoice being built ({ productId, name, qty, unitPrice, unitCost }).
+// The product still selected in the form (not yet added) is treated as one more line, so a
+// single-item sale works exactly as before: pick, Record.
+let invoiceLines = [];
+// The invoice just recorded — kept on screen (and for Print) until a new one is started.
+let lastInvoice = null;
+
 // ===== POPULATE SHOP DROPDOWN =====
 // Admins can sell from any shop; everyone else is locked to their own (products are per-shop stock).
 function populateShopSelect() {
@@ -117,16 +124,34 @@ function clearProductInfo() {
 }
 
 // ===== AMOUNT DISPLAY =====
+// The current selection plus everything already added — what Record Sale will submit.
+function pendingLine() {
+    if (!currentSale.productId) return null;
+    const product = _products.find(p => p.id === currentSale.productId);
+    return {
+        productId: currentSale.productId,
+        name:      product ? product.name : '—',
+        qty:       currentSale.qty || 1,
+        unitPrice: currentSale.unitPrice,
+        unitCost:  currentSale.unitCost,
+    };
+}
+
+function allInvoiceLines() {
+    const pending = pendingLine();
+    return pending ? [...invoiceLines, pending] : invoiceLines.slice();
+}
+
 function updateAmountDisplay() {
-    const qty    = currentSale.qty || 1;
-    const total  = currentSale.unitPrice * qty;
-    const cost   = currentSale.unitCost  * qty;
-    const profit = total - cost;
+    const qty   = currentSale.qty || 1;
+    const lines = allInvoiceLines();
+    const total = lines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
+    const cost  = lines.reduce((sum, l) => sum + l.unitCost  * l.qty, 0);
 
     setVal('displayUnitPrice', formatCurrency(currentSale.unitPrice));
     setVal('displayQty',       qty);
     setVal('displayTotal',     formatCurrency(total));
-    setVal('displayProfit',    formatCurrency(profit));
+    setVal('displayProfit',    formatCurrency(total - cost));
     setVal('displayCost',      formatCurrency(cost));
 
     const creditRow = document.getElementById('creditBalanceRow');
@@ -161,36 +186,101 @@ function selectPaymentMethod(method) {
     updateReceiptPreview();
 }
 
-// ===== RECEIPT PREVIEW =====
-function updateReceiptPreview() {
-    const qty    = currentSale.qty || 1;
-    const total  = currentSale.unitPrice * qty;
-    const product = currentSale.productId ? _products.find(p => p.id === currentSale.productId) : null;
-    const customerName = document.getElementById('customerName')?.value.trim() || '—';
+// ===== INVOICE PREVIEW =====
+function currentInvoiceData() {
+    const customerName = document.getElementById('customerName')?.value.trim() || 'Walk-in Customer';
+    const customer = _customers.find(c => c.name.toLowerCase() === customerName.toLowerCase());
+    return {
+        settings:        _settings,
+        invoiceNo:       '—',
+        customerName,
+        customerContact: customer ? (customer.address || customer.phone || '') : '',
+        date:            document.getElementById('saleDate')?.value ? new Date(document.getElementById('saleDate').value + 'T12:00:00') : new Date(),
+        paymentMethod:   currentSale.paymentMethod,
+        amountPaid:      parseFloat(document.getElementById('creditAmountPaid')?.value) || 0,
+        lines: allInvoiceLines().map(l => ({ qty: l.qty, description: l.name, unitPrice: l.unitPrice, amount: l.unitPrice * l.qty })),
+    };
+}
 
-    setInner('receiptCompanyName', escHtml(_settings.company_name || 'Reliavolt Supply'));
-    setInner('receiptNo',          currentSale.receiptNo || '—');
-    setInner('receiptDate',        formatDateTime(new Date().toISOString()));
-    setInner('receiptCustomer',    escHtml(customerName));
-    setInner('receiptPayment',     currentSale.paymentMethod);
-    setInner('receiptProductName', product ? escHtml(product.name) : '—');
-    setInner('receiptQty',         qty);
-    setInner('receiptUnitPrice',   product ? formatCurrency(currentSale.unitPrice) : '—');
-    setInner('receiptSubtotal',    formatCurrency(total));
-    setInner('receiptTotal',       formatCurrency(total));
-    setInner('receiptFooterText',  _settings.receipt_footer || 'Thank you for your business!');
+function updateReceiptPreview() {
+    const el = document.getElementById('invoicePreview');
+    if (!el) return;
+
+    // Starting a new invoice clears the one just recorded from view.
+    if (lastInvoice && (invoiceLines.length || currentSale.productId)) lastInvoice = null;
+
+    if (lastInvoice) {
+        el.innerHTML = renderInvoiceHtml(lastInvoice);
+        return;
+    }
+    el.innerHTML = renderInvoiceHtml({ ...currentInvoiceData(), removable: true });
+    el.querySelectorAll('[data-remove-line]').forEach(btn => {
+        btn.addEventListener('click', () => removeInvoiceLine(Number(btn.dataset.removeLine)));
+    });
+}
+
+function removeInvoiceLine(index) {
+    if (index < invoiceLines.length) {
+        invoiceLines.splice(index, 1);
+    } else {
+        // The last line is the still-selected product — removing it just clears the selection.
+        clearCurrentSelection();
+    }
+    updateAmountDisplay();
+    updateReceiptPreview();
+}
+
+function clearCurrentSelection() {
+    currentSale.productId = null;
+    currentSale.unitPrice = 0;
+    currentSale.unitCost  = 0;
+    currentSale.qty       = 1;
+    const select = document.getElementById('productSelect');
+    if (select) select.value = '';
+    const qtyInput = document.getElementById('saleQty');
+    if (qtyInput) qtyInput.value = 1;
+    clearProductInfo();
+}
+
+// Qty of a product already on the invoice (so adding it again can't oversell).
+function qtyOnInvoice(productId) {
+    return invoiceLines.filter(l => l.productId === productId).reduce((sum, l) => sum + l.qty, 0);
+}
+
+function addToInvoice() {
+    const line = pendingLine();
+    if (!line) { showToast('Please select a product.', 'error'); return false; }
+    if (line.qty < 1) { showToast('Quantity must be at least 1.', 'error'); return false; }
+
+    const product = _products.find(p => p.id === line.productId);
+    if (!product) { showToast('Product not found.', 'error'); return false; }
+    if (qtyOnInvoice(line.productId) + line.qty > product.quantity) {
+        showToast(`Only ${product.quantity} units of ${product.name} available in stock.`, 'warning');
+        return false;
+    }
+
+    const existing = invoiceLines.find(l => l.productId === line.productId);
+    if (existing) existing.qty += line.qty; else invoiceLines.push(line);
+
+    clearCurrentSelection();
+    updateAmountDisplay();
+    updateReceiptPreview();
+    document.getElementById('productSelect')?.focus();
+    return true;
 }
 
 // ===== RECORD SALE =====
 async function recordSale() {
-    if (!currentSale.productId) { showToast('Please select a product.', 'error'); return; }
+    if (currentSale.productId) {
+        // Fold the still-selected product in, with the same stock check as Add to Invoice.
+        if (!addToInvoice()) return;
+    }
+    if (!invoiceLines.length) { showToast('Please select a product.', 'error'); return; }
 
-    const qty          = parseInt(document.getElementById('saleQty').value) || 1;
-    const customerName = document.getElementById('customerName').value.trim();
+    const customerName  = document.getElementById('customerName').value.trim();
     const paymentMethod = currentSale.paymentMethod;
     const saleDate      = document.getElementById('saleDate')?.value || '';
 
-    if (qty < 1) { showToast('Quantity must be at least 1.', 'error'); return; }
     if (saleDate && saleDate > todayStr()) { showToast('Sale date cannot be in the future.', 'error'); return; }
 
     if (paymentMethod === 'Credit' && (!customerName || customerName.toLowerCase() === 'walk-in customer')) {
@@ -198,41 +288,53 @@ async function recordSale() {
         return;
     }
 
-    const product = _products.find(p => p.id === currentSale.productId);
-    if (!product) { showToast('Product not found.', 'error'); return; }
-    if (product.quantity < qty) { showToast(`Only ${product.quantity} units available in stock.`, 'warning'); return; }
-
+    const btn = document.getElementById('recordSaleBtn');
+    if (btn) btn.disabled = true;
     try {
-        const sale = await api.post('/api/sales', {
-            product_id:     currentSale.productId,
+        const draft = currentInvoiceData();
+        const amountPaid = paymentMethod === 'Credit' ? (parseFloat(document.getElementById('creditAmountPaid')?.value) || 0) : undefined;
+        const result = await api.post('/api/sales', {
+            items:          invoiceLines.map(l => ({ product_id: l.productId, qty: l.qty })),
             customer_name:  customerName || 'Walk-in Customer',
-            qty,
             payment_method: paymentMethod,
-            amount_paid:    paymentMethod === 'Credit' ? (parseFloat(document.getElementById('creditAmountPaid')?.value) || 0) : undefined,
+            amount_paid:    amountPaid,
             sale_date:      saleDate || undefined,
         });
 
-        // Update local product quantity and sales list
-        const pidx = _products.findIndex(p => p.id === currentSale.productId);
-        if (pidx !== -1) _products[pidx].quantity -= qty;
-
-        _sales.unshift(sale);
+        // Update local product quantities and sales list
+        for (const sale of result.sales) {
+            const pidx = _products.findIndex(p => p.id === sale.product_id);
+            if (pidx !== -1) _products[pidx].quantity -= sale.qty;
+            // A credit line still owed isn't listed on this page (see GET /api/sales).
+            if (Number(sale.credit_amount) <= Number(sale.credit_amount_paid)) _sales.unshift(sale);
+        }
         salesPage = 1; // jump back to page 1 so the new sale is visible right away
 
-        currentSale.receiptNo = sale.receipt_no;
-        updateReceiptPreview();
+        const first = result.sales[0];
+        lastInvoice = {
+            ...draft,
+            invoiceNo:    result.invoice_no,
+            customerName: first.customer_name,
+            date:         first.sale_date,
+            amountPaid,
+            lines: result.sales.map(s => ({ qty: s.qty, description: s.product_name, unitPrice: s.unit_price, amount: s.total })),
+        };
 
-        showToast(`Sale recorded! Receipt: ${sale.receipt_no}`, 'success');
+        showToast(`Sale recorded! Invoice: ${result.invoice_no}`, 'success');
         renderRecentSales();
         renderSalesByProduct();
-        resetSaleForm();
+        resetSaleForm(true);
         populateProductSelect();
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
-function resetSaleForm() {
+function resetSaleForm(keepLastInvoice = false) {
+    invoiceLines = [];
+    if (!keepLastInvoice) lastInvoice = null;
     currentSale.productId  = null;
     currentSale.unitPrice  = 0;
     currentSale.unitCost   = 0;
@@ -301,6 +403,7 @@ function renderRecentSales() {
             <td><span class="badge badge-secondary">${escHtml(s.payment_method || 'Cash')}</span></td>
             <td>
                 <div class="action-cell">
+                    <button class="btn btn-secondary btn-sm" onclick="printInvoiceByNo('${escHtml(s.invoice_no || s.receipt_no)}')">🧾 Invoice</button>
                     <button class="btn btn-warning btn-sm" onclick="openEditSale(${s.id})">✏️ Edit</button>
                     ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteSale(${s.id})">🗑️ Delete</button>` : ''}
                 </div>
@@ -585,7 +688,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (searchEl) searchEl.value = '';
         renderSalesByProduct();
     });
-    document.getElementById('printReceiptBtn')?.addEventListener('click', () => window.print());
+    document.getElementById('printReceiptBtn')?.addEventListener('click', () => {
+        const data = lastInvoice || currentInvoiceData();
+        if (!data.lines.length) { showToast('Add a product to the invoice first.', 'error'); return; }
+        printInvoiceHtml(renderInvoiceHtml(data));
+    });
+    document.getElementById('addToInvoiceBtn')?.addEventListener('click', addToInvoice);
+    document.getElementById('saleDate')?.addEventListener('change', updateReceiptPreview);
+    document.getElementById('creditAmountPaid')?.addEventListener('input', updateReceiptPreview);
     document.getElementById('newSaleBtn')?.addEventListener('click', () => {
         resetSaleForm();
         updateReceiptPreview();

@@ -179,10 +179,26 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // POST /api/sales  — records a sale, decrements stock, and auto-creates the customer record
-// (customers are never added by hand — a name only enters the system via a sale)
+// (customers are never added by hand — a name only enters the system via a sale).
+// Accepts either a single { product_id, qty } or { items: [{ product_id, qty }, ...] } for a
+// multi-line invoice. Each line is still its own sales row (stock, commission and reports
+// all work per product) with its own receipt_no; invoice_no ties the lines together and
+// is the first line's receipt_no. All lines must come from the same shop.
 router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
-    const { product_id, customer_id, customer_name, customer_phone, qty, payment_method, amount_paid, sale_date } = req.body;
-    if (!product_id || !qty) return res.status(400).json({ error: 'product_id and qty are required' });
+    const { customer_id, customer_name, customer_phone, payment_method, amount_paid, sale_date } = req.body;
+    const multi = Array.isArray(req.body.items);
+    const rawItems = multi ? req.body.items : [{ product_id: req.body.product_id, qty: req.body.qty }];
+
+    // Merge repeat lines for the same product so the stock check sees the combined qty.
+    const items = [];
+    for (const it of rawItems) {
+        const productId = parseInt(it && it.product_id, 10);
+        const qty = parseInt(it && it.qty, 10);
+        if (!productId || !qty || qty < 1) return res.status(400).json({ error: 'Each item needs a product_id and a qty of at least 1' });
+        const existing = items.find(x => x.productId === productId);
+        if (existing) existing.qty += qty; else items.push({ productId, qty });
+    }
+    if (!items.length) return res.status(400).json({ error: 'product_id and qty are required' });
 
     // Optional backdating — lets a late entry reflect when the sale actually happened
     // instead of when it was typed in.
@@ -199,33 +215,22 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        const { rows: pRows } = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [product_id]);
-        const product = pRows[0];
-        if (!product) throw new Error('Product not found');
-        if (req.user.role !== 'Admin' && product.shop_id !== req.user.shopId) {
-            throw new Error('You can only sell products from your own shop');
+        // Lock in id order so two concurrent invoices sharing products can't deadlock.
+        const { rows: pRows } = await client.query(
+            'SELECT * FROM products WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
+            [items.map(i => i.productId)]
+        );
+        for (const item of items) {
+            const product = pRows.find(p => p.id === item.productId);
+            if (!product) throw new Error('Product not found');
+            if (req.user.role !== 'Admin' && product.shop_id !== req.user.shopId) {
+                throw new Error('You can only sell products from your own shop');
+            }
+            if (product.quantity < item.qty) throw new Error(`Insufficient stock for "${product.name}" (${product.quantity} available)`);
+            item.product = product;
         }
-        if (product.quantity < qty) throw new Error(`Insufficient stock (${product.quantity} available)`);
-
-        // Decrement stock
-        await client.query('UPDATE products SET quantity = quantity - $1 WHERE id = $2', [qty, product_id]);
-
-        // Build receipt number — drawn from the id sequence itself (never reused, even
-        // across deletes or concurrent inserts), not COUNT(*) of existing rows. COUNT(*)
-        // drifts below the highest receipt number ever issued the moment any sale has
-        // ever been deleted, producing a number that collides with a receipt still in
-        // the table and fails the unique constraint on receipt_no.
-        const { rows: seqRows } = await client.query("SELECT nextval(pg_get_serial_sequence('sales', 'id')) AS next_val");
-        const receiptNo = `RV-${2000 + parseInt(seqRows[0].next_val, 10)}`;
-
-        const unitPrice  = parseFloat(product.selling_price);
-        const unitCost   = parseFloat(product.cost_price);
-        const total      = unitPrice * qty;
-        const profit     = (unitPrice - unitCost) * qty;
-        const commission = parseFloat(product.commission || 0) * qty;
-        // A product with a designated commission owner always credits them; otherwise it
-        // goes to whoever actually rang up this sale.
-        const commissionUserId = product.commission_user_id || req.user.id;
+        const shopId = items[0].product.shop_id;
+        if (items.some(i => i.product.shop_id !== shopId)) throw new Error('All items on one invoice must come from the same shop');
 
         // Resolve/auto-create the customer — this is the only place a customer record is ever created
         let resolvedCustomerId = null;
@@ -243,7 +248,7 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             const name = customer_name.trim();
             const { rows: existing } = await client.query(
                 'SELECT id, name FROM customers WHERE LOWER(name) = LOWER($1) AND shop_id = $2',
-                [name, product.shop_id]
+                [name, shopId]
             );
             if (existing[0]) {
                 resolvedCustomerId = existing[0].id;
@@ -251,7 +256,7 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             } else {
                 const { rows: created } = await client.query(
                     'INSERT INTO customers (name, phone, shop_id) VALUES ($1, $2, $3) RETURNING id, name',
-                    [name, customer_phone || null, product.shop_id]
+                    [name, customer_phone || null, shopId]
                 );
                 resolvedCustomerId = created[0].id;
                 cName = created[0].name;
@@ -259,46 +264,105 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
         }
 
         // Credit sales need a real, named customer to owe the balance to — an anonymous
-        // walk-in can't be tracked down later for payment.
-        let creditAmount = 0;
-        if (payment_method === 'Credit') {
-            if (!resolvedCustomerId) throw new Error('A customer name is required to sell on credit');
-            const paidNow = Math.max(0, parseFloat(amount_paid) || 0);
-            creditAmount = Math.max(0, total - paidNow);
+        // walk-in can't be tracked down later for payment. Whatever was paid up front is
+        // applied to the invoice's lines in order; the rest of each line goes on credit.
+        if (payment_method === 'Credit' && !resolvedCustomerId) throw new Error('A customer name is required to sell on credit');
+        let paidLeft = payment_method === 'Credit' ? Math.max(0, parseFloat(amount_paid) || 0) : 0;
+
+        let invoiceNo = null;
+        let totalCredit = 0;
+        const created = [];
+
+        for (const { product, qty } of items) {
+            // Build receipt number — drawn from the id sequence itself (never reused, even
+            // across deletes or concurrent inserts), not COUNT(*) of existing rows. COUNT(*)
+            // drifts below the highest receipt number ever issued the moment any sale has
+            // ever been deleted, producing a number that collides with a receipt still in
+            // the table and fails the unique constraint on receipt_no.
+            const { rows: seqRows } = await client.query("SELECT nextval(pg_get_serial_sequence('sales', 'id')) AS next_val");
+            const receiptNo = `RV-${2000 + parseInt(seqRows[0].next_val, 10)}`;
+            if (!invoiceNo) invoiceNo = receiptNo;
+
+            const unitPrice  = parseFloat(product.selling_price);
+            const unitCost   = parseFloat(product.cost_price);
+            const total      = unitPrice * qty;
+            const profit     = (unitPrice - unitCost) * qty;
+            const commission = parseFloat(product.commission || 0) * qty;
+            // A product with a designated commission owner always credits them; otherwise it
+            // goes to whoever actually rang up this sale.
+            const commissionUserId = product.commission_user_id || req.user.id;
+
+            let creditAmount = 0;
+            if (payment_method === 'Credit') {
+                const paidHere = Math.min(paidLeft, total);
+                paidLeft -= paidHere;
+                creditAmount = total - paidHere;
+                totalCredit += creditAmount;
+            }
+
+            const commissionDate = await resolveCommissionDate(client, commissionUserId, saleDate);
+
+            await client.query('UPDATE products SET quantity = quantity - $1 WHERE id = $2', [qty, product.id]);
+
+            const { rows } = await client.query(
+                `INSERT INTO sales
+                 (receipt_no, invoice_no, product_id, product_name, customer_id, customer_name, qty,
+                  unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date, credit_amount, commission_date)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+                [receiptNo, invoiceNo, product.id, product.name, resolvedCustomerId, cName,
+                 qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', shopId, req.user.id, commissionUserId, saleDate, creditAmount, commissionDate]
+            );
+
+            await client.query(
+                `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id)
+                 VALUES ($1, 'sale', $2, $3, $4, $5, $6)`,
+                [product.id, -qty, product.quantity - qty, `Sold via receipt ${receiptNo}`, req.user.id, rows[0].id]
+            );
+            created.push(rows[0]);
         }
 
-        const commissionDate = await resolveCommissionDate(client, commissionUserId, saleDate);
-
-        const { rows } = await client.query(
-            `INSERT INTO sales
-             (receipt_no, product_id, product_name, customer_id, customer_name, qty,
-              unit_price, unit_cost, total, profit, commission, payment_method, shop_id, user_id, commission_user_id, sale_date, credit_amount, commission_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
-            [receiptNo, product_id, product.name, resolvedCustomerId, cName,
-             qty, unitPrice, unitCost, total, profit, commission, payment_method || 'Cash', product.shop_id, req.user.id, commissionUserId, saleDate, creditAmount, commissionDate]
-        );
-
-        if (creditAmount > 0) {
+        if (totalCredit > 0) {
             await client.query(
                 'UPDATE customers SET credit_balance = credit_balance + $1 WHERE id = $2',
-                [creditAmount, resolvedCustomerId]
+                [totalCredit, resolvedCustomerId]
             );
         }
 
-        await client.query(
-            `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id)
-             VALUES ($1, 'sale', $2, $3, $4, $5, $6)`,
-            [product_id, -qty, product.quantity - qty, `Sold via receipt ${receiptNo}`, req.user.id, rows[0].id]
-        );
-
         await client.query('COMMIT');
-        logActivity(req, 'create', 'sale', rows[0].id, `Sold ${qty} x "${product.name}" — receipt ${receiptNo}`);
-        res.status(201).json(hideCost(rows[0], req.user.role));
+        for (const row of created) {
+            logActivity(req, 'create', 'sale', row.id, `Sold ${row.qty} x "${row.product_name}" — receipt ${row.receipt_no}` +
+                (created.length > 1 ? `, invoice ${invoiceNo}` : ''));
+        }
+        res.status(201).json(multi
+            ? { invoice_no: invoiceNo, sales: hideCost(created, req.user.role) }
+            : hideCost(created[0], req.user.role));
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(400).json({ error: err.message });
     } finally {
         client.release();
+    }
+});
+
+// GET /api/sales/invoice/:invoiceNo — every line of one invoice (including credit lines
+// still owed, which GET /api/sales leaves out), plus the customer's phone/address, for
+// printing or reprinting it.
+router.get('/invoice/:invoiceNo', verifyToken, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT s.*, c.phone AS customer_phone, c.address AS customer_address
+             FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+             WHERE s.invoice_no = $1
+             ORDER BY s.id`,
+            [req.params.invoiceNo]
+        );
+        if (!rows.length || (req.user.role !== 'Admin' && rows[0].shop_id !== req.user.shopId)) {
+            return res.status(404).json({ error: 'Invoice not found' });
+        }
+        res.json({ invoice_no: req.params.invoiceNo, lines: hideCost(rows, req.user.role) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
