@@ -131,8 +131,10 @@ function renderCreditHistoryBody() {
         return;
     }
 
-    const role = getCurrentUserRole();
-    const canReverse = role === 'Admin' || role === 'Manager';
+    // Follow the Role Permissions toggles (Users page): deleting a credit sale is
+    // "Delete Sales", reversing a payment is "Delete Customers" — same as the backend.
+    const canDeleteSale     = can('sales', 'delete');
+    const canReversePayment = can('customers', 'delete');
 
     tbody.innerHTML = timeline.map(entry => {
         if (entry.type === 'sale') {
@@ -143,7 +145,7 @@ function renderCreditHistoryBody() {
                 <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
                 <td><div class="action-cell">
                     <button class="btn btn-secondary btn-sm" onclick="printInvoiceByNo('${escHtml(entry.invoice_no || entry.receipt_no)}')">🧾 Invoice</button>
-                    ${canReverse ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : ''}
+                    ${canDeleteSale ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : ''}
                 </div></td>
             </tr>`;
         }
@@ -152,7 +154,7 @@ function renderCreditHistoryBody() {
             <td><span class="badge badge-success">Payment</span></td>
             <td>${escHtml(entry.note || '—')} <span style="color:var(--text-light);">by ${escHtml(entry.recorded_by || 'Unknown')}</span></td>
             <td style="color:#16a34a;">&minus;${formatCurrency(entry.amount)}</td>
-            <td>${canReverse ? `<button class="btn btn-danger btn-sm" onclick="reversePayment(${entry.id})">↩️ Reverse</button>` : '—'}</td>
+            <td>${canReversePayment ? `<button class="btn btn-danger btn-sm" onclick="reversePayment(${entry.id})">↩️ Reverse</button>` : '—'}</td>
         </tr>`;
     }).join('');
 }
@@ -269,6 +271,7 @@ function escHtml(str) {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadMyPermissions();
     await reloadCreditCustomers();
 
     document.getElementById('searchCreditCustomer')?.addEventListener('input', (e) => {

@@ -47,7 +47,7 @@ function renderCustomers(filter = '') {
             <td>
                 <div class="action-cell">
                     <button class="btn btn-primary btn-sm" onclick="viewHistory(${c.id})">📋 History</button>
-                    <button class="btn btn-danger btn-sm"  onclick="deleteCustomer(${c.id})">🗑️</button>
+                    ${can('customers', 'delete') ? `<button class="btn btn-danger btn-sm"  onclick="deleteCustomer(${c.id})">🗑️</button>` : ''}
                 </div>
             </td>
         </tr>`;
@@ -123,6 +123,7 @@ function escHtml(str) {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadMyPermissions();
     try {
         [_customers, _sales] = await Promise.all([
             api.get('/api/customers'),

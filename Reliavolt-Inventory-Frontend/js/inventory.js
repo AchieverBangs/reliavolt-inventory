@@ -37,7 +37,11 @@ function renderProductTable() {
     });
 
     const admin = isAdmin();
-    const colspan = admin ? 11 : 7;
+    const canEdit   = can('products', 'edit');
+    const canDelete = can('products', 'delete');
+    const showActions = canEdit || canDelete;
+    document.getElementById('actionsColHeader')?.classList.toggle('hidden', !showActions);
+    const colspan = admin ? 11 : 7 + (showActions ? 1 : 0);
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="${colspan}">
             <div class="empty-state"><span class="empty-icon">📦</span><p>No products found.</p></div>
@@ -54,10 +58,11 @@ function renderProductTable() {
         const shopCell   = admin ? `<td><span class="badge badge-secondary">${escHtml(p.shop_name || '—')}</span></td>` : '';
         const costCell   = admin ? `<td class="price-cell">${formatCurrency(p.cost_price)}</td>` : '';
         const profitCell = admin ? `<td class="profit-cell">+${formatCurrency(profit)} <span style="font-size:0.75rem;color:var(--text-light)">(${margin}%)</span></td>` : '';
-        const actionsCell = admin ? `<td>
+        // Edit/Delete follow the Role Permissions toggles (Users page).
+        const actionsCell = showActions ? `<td>
                 <div class="action-cell">
-                    <button class="btn btn-warning btn-sm" onclick="openEditProduct(${p.id})">✏️ Edit</button>
-                    <button class="btn btn-danger btn-sm"  onclick="deleteProduct(${p.id})">🗑️ Delete</button>
+                    ${canEdit ? `<button class="btn btn-warning btn-sm" onclick="openEditProduct(${p.id})">✏️ Edit</button>` : ''}
+                    ${canDelete ? `<button class="btn btn-danger btn-sm"  onclick="deleteProduct(${p.id})">🗑️ Delete</button>` : ''}
                 </div>
             </td>` : '';
         return `<tr class="${status.rowCls}">
@@ -317,6 +322,7 @@ function escHtml(str) {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadMyPermissions();
     const hashFilter = window.location.hash.slice(1);
     if (['all', 'in', 'low', 'out'].includes(hashFilter)) currentFilter = hashFilter;
 

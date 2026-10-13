@@ -98,7 +98,7 @@ function renderDeliveryTable() {
             ? `<button class="btn btn-primary btn-sm" onclick="viewDelivery(${d.id})">👁️ View</button>`
             : `<div class="action-cell">
                 <button class="btn btn-primary btn-sm" onclick="viewDelivery(${d.id})">👁️ View</button>
-                <button class="btn btn-danger btn-sm"  onclick="deleteDelivery(${d.id})">🗑️</button>
+                ${can('deliveries', 'delete') ? `<button class="btn btn-danger btn-sm"  onclick="deleteDelivery(${d.id})">🗑️</button>` : ''}
                </div>`;
 
         return `<tr>
@@ -340,6 +340,7 @@ function escHtml(str) {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadMyPermissions();
     if (getCurrentUserRole() === 'Delivery Person') {
         const btn = document.getElementById('newDeliveryBtn');
         if (btn) btn.classList.add('hidden');

@@ -477,11 +477,9 @@ router.delete('/:id', verifyToken, requirePermission('sales', 'delete'), async (
         );
         if (!existing[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sale not found' }); }
 
+        // Whether this role may delete sales at all is the "Delete Sales" toggle in Role
+        // Permissions (requirePermission above) — the only extra rule is shop-scoping.
         if (req.user.role !== 'Admin') {
-            if (existing[0].payment_method !== 'Credit') {
-                await client.query('ROLLBACK');
-                return res.status(403).json({ error: 'Only Admin can delete a non-credit sale — Managers can delete Credit sales only' });
-            }
             if (existing[0].shop_id !== req.user.shopId) {
                 await client.query('ROLLBACK');
                 return res.status(403).json({ error: 'You can only delete sales from your own shop' });

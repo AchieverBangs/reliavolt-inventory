@@ -20,6 +20,29 @@ router.get('/', verifyToken, requireRole('Admin'), async (req, res) => {
     }
 });
 
+// GET /api/role-permissions/mine — what the caller's own role may edit/delete, as
+// { sales: { edit, delete }, products: {...}, ... }, so every page can show or hide its
+// Edit/Delete buttons to match the toggles above. Admin is always allowed everything.
+router.get('/mine', verifyToken, async (req, res) => {
+    const perms = {};
+    for (const area of VALID_AREAS) perms[area] = { edit: false, delete: false };
+    try {
+        if (req.user.role === 'Admin') {
+            for (const area of VALID_AREAS) perms[area] = { edit: true, delete: true };
+        } else {
+            const { rows } = await pool.query(
+                'SELECT area, action, allowed FROM role_permissions WHERE role = $1',
+                [req.user.role]
+            );
+            for (const r of rows) if (perms[r.area]) perms[r.area][r.action] = r.allowed;
+        }
+        res.json(perms);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // PATCH /api/role-permissions  { role, area, action, allowed }  (Admin only) — flips one
 // cell of the grid. Admin itself is never a valid target — it's always exempt, there's
 // nothing to toggle.

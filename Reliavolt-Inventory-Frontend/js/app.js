@@ -45,6 +45,25 @@ function isAdmin() {
     return getCurrentUserRole() === 'Admin';
 }
 
+// ===== ROLE PERMISSIONS (Users → Role Permissions toggles) =====
+// Loaded once per page from GET /api/role-permissions/mine, so Edit/Delete buttons show
+// or hide to match what an Admin has switched on for this role. The backend enforces
+// the same toggles; this only keeps the buttons honest. Admin can always do everything.
+let _myPermissions = null;
+async function loadMyPermissions() {
+    if (_myPermissions) return _myPermissions;
+    try {
+        _myPermissions = await api.get('/api/role-permissions/mine');
+    } catch {
+        _myPermissions = {};
+    }
+    return _myPermissions;
+}
+function can(area, action) {
+    if (isAdmin()) return true;
+    return !!(_myPermissions && _myPermissions[area] && _myPermissions[area][action]);
+}
+
 function logout() {
     clearToken();
     window.location.href = 'index.html';

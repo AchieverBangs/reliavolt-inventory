@@ -330,15 +330,22 @@ router.put('/:id', verifyToken, requirePermission('products', 'edit'), async (re
     try {
         await client.query('BEGIN');
 
-        const { rows: beforeRows } = await client.query('SELECT quantity, cost_price FROM products WHERE id=$1 FOR UPDATE', [req.params.id]);
+        const { rows: beforeRows } = await client.query('SELECT quantity, cost_price, commission_user_id, shop_id FROM products WHERE id=$1 FOR UPDATE', [req.params.id]);
         if (!beforeRows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
+        if (req.user.role !== 'Admin' && beforeRows[0].shop_id !== req.user.shopId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'You can only edit products from your own shop' });
+        }
         const oldQty = beforeRows[0].quantity;
         const effectiveCostPrice = req.user.role === 'Admin' ? (cost_price || 0) : beforeRows[0].cost_price;
+        // Only Admin sees/sets the commission owner — anyone else editing (via Role
+        // Permissions) keeps the existing one rather than wiping it.
+        const effectiveOwnerId = req.user.role === 'Admin' ? (commission_user_id || null) : beforeRows[0].commission_user_id;
 
         const { rows } = await client.query(
             `UPDATE products SET name=$1, category=$2, brand=$3, cost_price=$4,
              selling_price=$5, quantity=$6, icon=$7, shop_id=COALESCE($8, shop_id), commission=$9, commission_user_id=$10 WHERE id=$11 RETURNING *`,
-            [name, category || null, brand || null, effectiveCostPrice, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, commission_user_id || null, req.params.id]
+            [name, category || null, brand || null, effectiveCostPrice, selling_price || 0, quantity || 0, icon || '📦', shop_id || null, commission || 0, effectiveOwnerId, req.params.id]
         );
         if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Product not found' }); }
 
@@ -369,7 +376,7 @@ router.put('/:id', verifyToken, requirePermission('products', 'edit'), async (re
                 commission = $2 * qty,
                 commission_user_id = COALESCE($3, user_id)
              WHERE product_id = $4`,
-            [newCostPrice, commission || 0, commission_user_id || null, req.params.id]
+            [newCostPrice, commission || 0, effectiveOwnerId, req.params.id]
         );
 
         await client.query('COMMIT');
@@ -389,7 +396,10 @@ router.put('/:id', verifyToken, requirePermission('products', 'edit'), async (re
 // DELETE /api/products/:id  — Admin, or any role granted the Products Delete permission
 router.delete('/:id', verifyToken, requirePermission('products', 'delete'), async (req, res) => {
     try {
-        const { rows: existing } = await pool.query('SELECT name FROM products WHERE id = $1', [req.params.id]);
+        const { rows: existing } = await pool.query('SELECT name, shop_id FROM products WHERE id = $1', [req.params.id]);
+        if (existing[0] && req.user.role !== 'Admin' && existing[0].shop_id !== req.user.shopId) {
+            return res.status(403).json({ error: 'You can only delete products from your own shop' });
+        }
         const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
         if (!rowCount) return res.status(404).json({ error: 'Product not found' });
         logActivity(req, 'delete', 'product', req.params.id, `Deleted product "${existing[0]?.name || req.params.id}"`);

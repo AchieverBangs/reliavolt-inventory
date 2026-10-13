@@ -157,7 +157,10 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 // DELETE /api/deliveries/:id  — Admin, or any role granted the Deliveries Delete permission
 router.delete('/:id', verifyToken, requirePermission('deliveries', 'delete'), async (req, res) => {
     try {
-        const { rows: existing } = await pool.query('SELECT delivery_no FROM deliveries WHERE id = $1', [req.params.id]);
+        const { rows: existing } = await pool.query('SELECT delivery_no, from_shop_id FROM deliveries WHERE id = $1', [req.params.id]);
+        if (existing[0] && req.user.role !== 'Admin' && existing[0].from_shop_id !== req.user.shopId) {
+            return res.status(403).json({ error: 'You can only delete deliveries from your own shop' });
+        }
         const { rowCount } = await pool.query('DELETE FROM deliveries WHERE id = $1', [req.params.id]);
         if (!rowCount) return res.status(404).json({ error: 'Delivery not found' });
         logActivity(req, 'delete', 'delivery', req.params.id, `Deleted delivery ${existing[0]?.delivery_no || req.params.id}`);
