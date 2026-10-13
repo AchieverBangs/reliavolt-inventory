@@ -393,7 +393,9 @@ BEGIN
     END LOOP;
 END $$;
 
--- One row per (staff member, month) once that month's commission has been settled.
+-- One row per (staff member, commission month) once that month's commission has been
+-- settled. year/month label a commission period — the 15th of that month to the 14th of
+-- the next (see backend/src/services/commissionPeriod.js), not a calendar month.
 -- staff_confirmed_at = the earner says they received it; admin_confirmed_at = an Admin
 -- says it was paid out. Independent of each other — either can happen first.
 -- total_commission is a snapshot taken at confirm time, since a later product edit can
@@ -431,9 +433,17 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_a
 -- sale_date, copied straight across (safe to rerun — only touches rows still NULL).
 UPDATE sales SET commission_date = sale_date WHERE commission_date IS NULL;
 
+-- Commission months switched from calendar months to 15th–14th periods, compiled from
+-- 15 Sep 2026. A (2026, 9) settlement created before 15 Oct 2026 can only be an old
+-- calendar-September one (the new Sep 15 – Oct 14 period hadn't ended yet), and would
+-- otherwise make that new period look already confirmed. Settlements before Sep 2026
+-- are left alone — those periods predate the start and nothing reads them any more.
+DELETE FROM commission_settlements
+WHERE year = 2026 AND month = 9 AND created_at < TIMESTAMP '2026-10-15';
+
 -- Retroactive correction, one time per affected sale (safe to rerun — it only ever
 -- recomputes the same answer): a sale whose activity-log "create" entry happened AFTER
--- its own month's commission was already marked paid for that earner must have been
+-- its own commission period was already marked paid for that earner must have been
 -- backdated in after the fact — so its commission should count toward the month it was
 -- actually entered (the activity log's created_at), not the month it was backdated to.
 -- A sale with no matching activity-log row (demo data, or a logging hiccup) is left on
@@ -442,8 +452,9 @@ UPDATE sales s
 SET commission_date = al.created_at
 FROM commission_settlements cs, activity_log al
 WHERE s.commission_user_id = cs.user_id
-  AND EXTRACT(YEAR FROM s.sale_date)::int = cs.year
-  AND EXTRACT(MONTH FROM s.sale_date)::int = cs.month
+  AND s.sale_date >= DATE '2026-09-15'
+  AND EXTRACT(YEAR FROM s.sale_date - INTERVAL '14 days')::int = cs.year
+  AND EXTRACT(MONTH FROM s.sale_date - INTERVAL '14 days')::int = cs.month
   AND cs.admin_confirmed_at IS NOT NULL
   AND al.entity_type = 'sale' AND al.action = 'create' AND al.entity_id = s.id
   AND al.created_at > cs.admin_confirmed_at;

@@ -2,6 +2,7 @@ const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
+const { periodExpr, startedExpr, periodOf, periodRange } = require('../services/commissionPeriod');
 
 const router = express.Router();
 const SALE_ROLES = ['Admin', 'Manager', 'Cashier'];
@@ -30,16 +31,18 @@ function parseSaleDate(sale_date, keepTimeFrom = new Date()) {
     return new Date(y, m - 1, d, keepTimeFrom.getHours(), keepTimeFrom.getMinutes(), keepTimeFrom.getSeconds());
 }
 
-// Normally a sale's commission counts toward the month it actually happened in
-// (saleDate). The one exception: if that month's commission has already been marked
+// Normally a sale's commission counts toward the commission period (15th–14th, see
+// services/commissionPeriod.js) it actually happened in (saleDate). The one exception:
+// if that period's commission has already been marked
 // paid out for this earner (commission_settlements.admin_confirmed_at), a sale backdated
-// into it now would otherwise silently reopen an already-settled month. Instead, its
+// into it now would otherwise silently reopen an already-settled period. Instead, its
 // commission counts toward right now — see the commission_date column in schema.sql.
 async function resolveCommissionDate(client, commissionUserId, saleDate) {
+    const { year, month } = periodOf(saleDate);
     const { rows } = await client.query(
         `SELECT 1 FROM commission_settlements
          WHERE user_id = $1 AND year = $2 AND month = $3 AND admin_confirmed_at IS NOT NULL`,
-        [commissionUserId, saleDate.getFullYear(), saleDate.getMonth() + 1]
+        [commissionUserId, year, month]
     );
     return rows.length ? new Date() : saleDate;
 }
@@ -81,18 +84,22 @@ router.get('/', verifyToken, async (req, res) => {
 
 // GET /api/sales/commission/summary — the caller's own commission by day/week/month/year;
 // Admins also get a by-staff breakdown across everyone who can sell.
-// Optional ?year=&month= (month 1-12) filters an additional "selected" total for any
-// specific month/year (or the whole year, if month is omitted) on top of the fixed buckets.
+// "month" here is the current commission period (15th–14th) and ?year=&month= (month 1-12)
+// selects a commission period by its start month (or every period starting in that year,
+// if month is omitted). Sales before COMMISSION_START never count — see
+// services/commissionPeriod.js.
 router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
+        const cur = periodOf(new Date());
+        const curStart = periodRange(cur.year, cur.month).start;
         const { rows: mine } = await pool.query(
             `SELECT
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= CURRENT_DATE), 0) AS today,
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= $2::date), 0) AS month,
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
-             FROM sales WHERE commission_user_id = $1`,
-            [req.user.id]
+             FROM sales WHERE commission_user_id = $1 AND ${startedExpr('commission_date')}`,
+            [req.user.id, curStart]
         );
 
         const result = { mine: mine[0] };
@@ -104,10 +111,10 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
         if (year) {
             const { rows: selected } = await pool.query(
                 `SELECT COALESCE(SUM(earned_commission) FILTER (
-                    WHERE EXTRACT(YEAR FROM commission_date) = $2
-                      AND ($3::int IS NULL OR EXTRACT(MONTH FROM commission_date) = $3)
+                    WHERE EXTRACT(YEAR FROM ${periodExpr('commission_date')}) = $2
+                      AND ($3::int IS NULL OR EXTRACT(MONTH FROM ${periodExpr('commission_date')}) = $3)
                  ), 0) AS selected
-                 FROM sales WHERE commission_user_id = $1`,
+                 FROM sales WHERE commission_user_id = $1 AND ${startedExpr('commission_date')}`,
                 [req.user.id, year, month]
             );
             result.mine.selected = selected[0].selected;
@@ -130,21 +137,21 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                 `SELECT u.id AS user_id, u.name, u.username, u.role,
                     COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= CURRENT_DATE), 0) AS today,
                     COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
-                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('month', CURRENT_DATE)), 0) AS month,
+                    COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= $4::date), 0) AS month,
                     COALESCE(SUM(s.earned_commission) FILTER (WHERE s.commission_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year,
                     COALESCE(SUM(s.earned_commission) FILTER (
-                        WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM s.commission_date) = $2
-                          AND ($3::int IS NULL OR EXTRACT(MONTH FROM s.commission_date) = $3)
+                        WHERE $2::int IS NOT NULL AND EXTRACT(YEAR FROM ${periodExpr('s.commission_date')}) = $2
+                          AND ($3::int IS NULL OR EXTRACT(MONTH FROM ${periodExpr('s.commission_date')}) = $3)
                     ), 0) AS selected,
                     cs.staff_confirmed_at, cs.admin_confirmed_at
                  FROM users u
-                 LEFT JOIN sales s ON s.commission_user_id = u.id
+                 LEFT JOIN sales s ON s.commission_user_id = u.id AND ${startedExpr('s.commission_date')}
                  LEFT JOIN commission_settlements cs
                     ON cs.user_id = u.id AND cs.year = $2::int AND cs.month = $3::int
                  WHERE u.role = ANY($1)
                  GROUP BY u.id, u.name, u.username, u.role, cs.staff_confirmed_at, cs.admin_confirmed_at
                  ORDER BY u.name`,
-                [SALE_ROLES, year || null, month]
+                [SALE_ROLES, year || null, month, curStart]
             );
             result.byStaff = byStaff;
         }
