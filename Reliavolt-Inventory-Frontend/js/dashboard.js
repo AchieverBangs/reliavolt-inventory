@@ -175,21 +175,27 @@ const ROLE_BADGE_CLASS = {
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// A commission month runs from the 15th to the 14th of the next month and is labelled by
-// the month it starts in (matches backend/src/services/commissionPeriod.js), so
-// month 9 = "15 Sep – 14 Oct".
+// Commission months are labelled by the month they start in (matches
+// backend/src/services/commissionPeriod.js): calendar months up to Aug 2026, then
+// Sep 2026 = 1 Sep – 14 Oct as the changeover, then 15th-to-14th.
 function commissionPeriodLabel(month, year) {
-    const next = month % 12;
-    const range = `15 ${MONTH_SHORT[month - 1]} – 14 ${MONTH_SHORT[next]}`;
-    if (!year) return range;
-    return month === 12 ? `15 Dec ${year} – 14 Jan ${Number(year) + 1}` : `${range} ${year}`;
+    month = Number(month); year = Number(year);
+    const key = year * 12 + month, cutover = 2026 * 12 + 9;
+    if (key < cutover) return `${MONTH_NAMES[month - 1]} ${year}`;
+    const startDay = key === cutover ? 1 : 15;
+    const endYear = month === 12 ? year + 1 : year;
+    const start = `${startDay} ${MONTH_SHORT[month - 1]}${endYear !== year ? ` ${year}` : ''}`;
+    return `${start} – 14 ${MONTH_SHORT[month % 12]} ${endYear}`;
 }
 
-// Start date of the commission month we're currently in, e.g. "15 Oct".
+// Start date of the commission month we're currently in, e.g. "15 Oct" ("1 Sep" during
+// the Sep 2026 changeover period).
 function currentCommissionPeriodStart() {
     const d = new Date();
-    const m = d.getDate() >= 15 ? d.getMonth() : (d.getMonth() + 11) % 12;
-    return `15 ${MONTH_SHORT[m]}`;
+    const back = d.getDate() < 15;
+    const m = back ? (d.getMonth() + 11) % 12 : d.getMonth();
+    const y = back && d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
+    return `${y === 2026 && m === 8 ? 1 : 15} ${MONTH_SHORT[m]}`;
 }
 
 // The Month/Year filter is duplicated on both the "Your Commission" and "Commission by
@@ -199,11 +205,6 @@ function initCommissionFilters() {
     const monthSelects = [document.getElementById('commissionMonthFilter'), document.getElementById('commissionByStaffMonthFilter')].filter(Boolean);
     if (!yearSelects.length || yearSelects[0].options.length) return; // already populated
 
-    monthSelects.forEach(sel => {
-        for (const opt of sel.options) {
-            if (opt.value) opt.textContent = commissionPeriodLabel(Number(opt.value));
-        }
-    });
     document.querySelectorAll('.commission-period-label').forEach(el => {
         el.textContent = `Since ${currentCommissionPeriodStart()}`;
     });

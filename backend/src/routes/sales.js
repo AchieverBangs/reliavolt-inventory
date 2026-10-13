@@ -2,7 +2,7 @@ const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole, requirePermission } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
-const { periodExpr, startedExpr, periodOf, periodRange } = require('../services/commissionPeriod');
+const { periodExpr, periodOf, periodRange } = require('../services/commissionPeriod');
 
 const router = express.Router();
 const SALE_ROLES = ['Admin', 'Manager', 'Cashier'];
@@ -86,8 +86,7 @@ router.get('/', verifyToken, async (req, res) => {
 // Admins also get a by-staff breakdown across everyone who can sell.
 // "month" here is the current commission period (15th–14th) and ?year=&month= (month 1-12)
 // selects a commission period by its start month (or every period starting in that year,
-// if month is omitted). Sales before COMMISSION_START never count — see
-// services/commissionPeriod.js.
+// if month is omitted) — see services/commissionPeriod.js.
 router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
         const cur = periodOf(new Date());
@@ -98,7 +97,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('week',  CURRENT_DATE)), 0) AS week,
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= $2::date), 0) AS month,
                 COALESCE(SUM(earned_commission) FILTER (WHERE commission_date >= date_trunc('year',  CURRENT_DATE)), 0) AS year
-             FROM sales WHERE commission_user_id = $1 AND ${startedExpr('commission_date')}`,
+             FROM sales WHERE commission_user_id = $1`,
             [req.user.id, curStart]
         );
 
@@ -114,7 +113,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                     WHERE EXTRACT(YEAR FROM ${periodExpr('commission_date')}) = $2
                       AND ($3::int IS NULL OR EXTRACT(MONTH FROM ${periodExpr('commission_date')}) = $3)
                  ), 0) AS selected
-                 FROM sales WHERE commission_user_id = $1 AND ${startedExpr('commission_date')}`,
+                 FROM sales WHERE commission_user_id = $1`,
                 [req.user.id, year, month]
             );
             result.mine.selected = selected[0].selected;
@@ -145,7 +144,7 @@ router.get('/commission/summary', verifyToken, requireRole(...SALE_ROLES), async
                     ), 0) AS selected,
                     cs.staff_confirmed_at, cs.admin_confirmed_at
                  FROM users u
-                 LEFT JOIN sales s ON s.commission_user_id = u.id AND ${startedExpr('s.commission_date')}
+                 LEFT JOIN sales s ON s.commission_user_id = u.id
                  LEFT JOIN commission_settlements cs
                     ON cs.user_id = u.id AND cs.year = $2::int AND cs.month = $3::int
                  WHERE u.role = ANY($1)

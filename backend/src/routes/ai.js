@@ -3,7 +3,6 @@ const rateLimit = require('express-rate-limit');
 const Anthropic = require('@anthropic-ai/sdk');
 const pool      = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
-const { startedExpr } = require('../services/commissionPeriod');
 
 const router = express.Router();
 const ASK_ROLES = ['Admin', 'Manager', 'Cashier', 'Stock Manager'];
@@ -287,7 +286,7 @@ const TOOLS_ADMIN = [
     },
     {
         name: 'get_commission_settlement_status',
-        description: "For one commission month — which runs from the 15th of the given month to the 14th of the next (e.g. month 9 = 15 Sep – 14 Oct) — show every staff member's commission total and whether they've confirmed receiving it and whether an Admin has confirmed paying it. Use this for questions like 'who hasn't been paid their commission for September' or 'has Samuel confirmed his commission yet'.",
+        description: "For one commission month — a calendar month up to August 2026, then 1 Sep – 14 Oct 2026 for September 2026, and from October 2026 the 15th of the given month to the 14th of the next — show every staff member's commission total and whether they've confirmed receiving it and whether an Admin has confirmed paying it. Use this for questions like 'who hasn't been paid their commission for September' or 'has Samuel confirmed his commission yet'.",
         input_schema: {
             type: 'object',
             properties: {
@@ -407,8 +406,7 @@ async function runTool(name, input, req) {
                 const { rows } = await pool.query(
                     `SELECT COALESCE(SUM(earned_commission), 0) AS total_commission, COUNT(*)::int AS sales_count
                      FROM sales
-                     WHERE commission_user_id = $1 AND commission_date >= $2 AND commission_date < ($3::date + INTERVAL '1 day')
-                       AND ${startedExpr('commission_date')}`,
+                     WHERE commission_user_id = $1 AND commission_date >= $2 AND commission_date < ($3::date + INTERVAL '1 day')`,
                     [req.user.id, input.from, input.to]
                 );
                 return { staff: req.user.name, ...rows[0] };
@@ -418,7 +416,6 @@ async function runTool(name, input, req) {
                  FROM users u
                  LEFT JOIN sales s ON s.commission_user_id = u.id
                      AND s.commission_date >= $1 AND s.commission_date < ($2::date + INTERVAL '1 day')
-                     AND ${startedExpr('s.commission_date')}
                  WHERE ($3::text IS NULL OR u.name ILIKE $3)
                  GROUP BY u.name
                  ORDER BY total_commission DESC`,
@@ -743,7 +740,7 @@ You can help with three kinds of requests:
    - Inventory: add/edit products (Admin), import from Excel/CSV, each product has a "History" button showing every stock addition and sale with running totals.
    - Sales: record a sale (pick product + qty, optionally backdate it with "Sale Date" if it happened earlier), edit an already-recorded sale's date/customer/payment method, paginated Recent Sales list with a date filter.
    - Reports: Daily/Weekly/Monthly sales, Profit (Admin), Low Stock, Stock (added/sold/remaining per product, printable to PDF via the browser's print dialog), Chart, By Shop.
-   - Commission: a flat amount per unit sold, set per product, optionally assigned to one designated staff member who always earns it regardless of who processes the sale; commission months run from the 15th to the 14th of the next month (e.g. the "September" commission month is 15 Sep – 14 Oct) and commission only counts from 15 Sep 2026 onward; once a commission month ends, both the staff member and an Admin confirm it separately (received / paid).
+   - Commission: a flat amount per unit sold, set per product, optionally assigned to one designated staff member who always earns it regardless of who processes the sale; commission months were calendar months up to August 2026; from then on they run from the 15th to the 14th of the next month, with the "September 2026" commission month covering 1 Sep – 14 Oct 2026 as the changeover (October 2026 = 15 Oct – 14 Nov, and so on); once a commission month ends, both the staff member and an Admin confirm it separately (received / paid).
    - Settings, Users and Shops (Admin only), System Logs (Admin only, full activity audit trail).
 
 ACCESS POLICY — this matters, follow it strictly:

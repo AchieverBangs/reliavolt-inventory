@@ -2,14 +2,14 @@ const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { logActivity } = require('../services/activityLog');
-const { periodExpr, startedExpr, periodOf, periodRange } = require('../services/commissionPeriod');
+const { periodExpr, periodOf, periodRange } = require('../services/commissionPeriod');
 
 const router = express.Router();
 const SALE_ROLES = ['Admin', 'Manager', 'Cashier'];
 
-// "Month" throughout this file means a commission period (15th to the 14th of the next
-// month, labelled by its start month), not a calendar month, and only sales from
-// COMMISSION_START onward count — see services/commissionPeriod.js.
+// "Month" throughout this file means a commission period labelled by its start month —
+// calendar months up to Aug 2026, 15th-to-14th from Sep 2026 — see
+// services/commissionPeriod.js.
 
 // GET /api/commission/pending-mine — past (already-ended) periods where the caller earned
 // commission but hasn't confirmed receiving it yet.
@@ -34,7 +34,6 @@ router.get('/pending-mine', verifyToken, requireRole(...SALE_ROLES), async (req,
                        SUM(earned_commission) AS total
                 FROM sales
                 WHERE commission_user_id = $1
-                  AND ${startedExpr('commission_date')}
                   AND commission_date < $2::date
                 GROUP BY 1, 2
                 HAVING SUM(earned_commission) > 0
@@ -64,7 +63,6 @@ router.post('/confirm-mine', verifyToken, requireRole(...SALE_ROLES), async (req
         const { rows: totalRows } = await pool.query(
             `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
              WHERE commission_user_id = $1
-               AND ${startedExpr('commission_date')}
                AND commission_date >= $2::date AND commission_date < $3::date`,
             [req.user.id, periodRange(year, month).start, periodRange(year, month).end]
         );
@@ -101,7 +99,6 @@ router.get('/pending-admin', verifyToken, requireRole('Admin'), async (req, res)
                        SUM(earned_commission) AS total
                 FROM sales
                 WHERE commission_user_id IS NOT NULL
-                  AND ${startedExpr('commission_date')}
                   AND commission_date < $1::date
                 GROUP BY 1, 2, 3
                 HAVING SUM(earned_commission) > 0
@@ -133,7 +130,6 @@ router.post('/:userId/confirm-admin', verifyToken, requireRole('Admin'), async (
         const { rows: totalRows } = await pool.query(
             `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
              WHERE commission_user_id = $1
-               AND ${startedExpr('commission_date')}
                AND commission_date >= $2::date AND commission_date < $3::date`,
             [userId, periodRange(year, month).start, periodRange(year, month).end]
         );

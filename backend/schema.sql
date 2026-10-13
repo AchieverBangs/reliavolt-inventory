@@ -394,8 +394,9 @@ BEGIN
 END $$;
 
 -- One row per (staff member, commission month) once that month's commission has been
--- settled. year/month label a commission period — the 15th of that month to the 14th of
--- the next (see backend/src/services/commissionPeriod.js), not a calendar month.
+-- settled. year/month label a commission period: a calendar month up to Aug 2026, then
+-- 15th-to-14th (Sep 2026 = 1 Sep – 14 Oct as the changeover) — see
+-- backend/src/services/commissionPeriod.js.
 -- staff_confirmed_at = the earner says they received it; admin_confirmed_at = an Admin
 -- says it was paid out. Independent of each other — either can happen first.
 -- total_commission is a snapshot taken at confirm time, since a later product edit can
@@ -433,11 +434,11 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_a
 -- sale_date, copied straight across (safe to rerun — only touches rows still NULL).
 UPDATE sales SET commission_date = sale_date WHERE commission_date IS NULL;
 
--- Commission months switched from calendar months to 15th–14th periods, compiled from
--- 15 Sep 2026. A (2026, 9) settlement created before 15 Oct 2026 can only be an old
--- calendar-September one (the new Sep 15 – Oct 14 period hadn't ended yet), and would
--- otherwise make that new period look already confirmed. Settlements before Sep 2026
--- are left alone — those periods predate the start and nothing reads them any more.
+-- Commission months switched from calendar months to 15th–14th periods from 15 Sep 2026,
+-- with September 2026 stretched to 1 Sep – 14 Oct. A (2026, 9) settlement created before
+-- 15 Oct 2026 can only be an old calendar-September one (the stretched period hadn't
+-- ended yet), and would otherwise make it look already confirmed. Settlements up to
+-- Aug 2026 are still valid — those calendar months are unchanged.
 DELETE FROM commission_settlements
 WHERE year = 2026 AND month = 9 AND created_at < TIMESTAMP '2026-10-15';
 
@@ -452,9 +453,8 @@ UPDATE sales s
 SET commission_date = al.created_at
 FROM commission_settlements cs, activity_log al
 WHERE s.commission_user_id = cs.user_id
-  AND s.sale_date >= DATE '2026-09-15'
-  AND EXTRACT(YEAR FROM s.sale_date - INTERVAL '14 days')::int = cs.year
-  AND EXTRACT(MONTH FROM s.sale_date - INTERVAL '14 days')::int = cs.month
+  AND EXTRACT(YEAR FROM CASE WHEN s.sale_date < DATE '2026-09-15' THEN s.sale_date ELSE s.sale_date - INTERVAL '14 days' END)::int = cs.year
+  AND EXTRACT(MONTH FROM CASE WHEN s.sale_date < DATE '2026-09-15' THEN s.sale_date ELSE s.sale_date - INTERVAL '14 days' END)::int = cs.month
   AND cs.admin_confirmed_at IS NOT NULL
   AND al.entity_type = 'sale' AND al.action = 'create' AND al.entity_id = s.id
   AND al.created_at > cs.admin_confirmed_at;
