@@ -29,6 +29,27 @@ function renderDashboardStats() {
     setEl('statSellingValueLabel', 'Inventory Value (Selling)' + scopeSuffix);
     setEl('statCostValue',    formatCurrency(costValue));
     setEl('statSellingValue', formatCurrency(sellingValue));
+
+    // "Ever stored" = what's on the shelf now plus everything already sold from it, so a
+    // sale doesn't lower it (it just moves units from one side to the other) and deleting
+    // a sale doesn't either. Valued at each product's current price — past prices aren't kept.
+    const soldByProduct = {};
+    _sales.forEach(s => { if (s.product_id) soldByProduct[s.product_id] = (soldByProduct[s.product_id] || 0) + Number(s.qty); });
+    let everUnits = 0, everCost = 0, everSelling = 0;
+    _products.forEach(p => {
+        const units = Number(p.quantity) + (soldByProduct[p.id] || 0);
+        everUnits   += units;
+        everCost    += units * (Number(p.cost_price) || 0);
+        everSelling += units * Number(p.selling_price);
+    });
+    const everSub = `${everUnits.toLocaleString()} units stocked in total`;
+    setEl('statEverCostValueLabel',    'All Stock Ever Stored (Cost)'    + scopeSuffix);
+    setEl('statEverSellingValueLabel', 'All Stock Ever Stored (Selling)' + scopeSuffix);
+    setEl('statEverCostValue',    formatCurrency(everCost));
+    setEl('statEverSellingValue', formatCurrency(everSelling));
+    setEl('statEverCostSub',    everSub);
+    setEl('statEverSellingSub', everSub);
+
     setEl('statSalesToday',    formatCurrency(totalSalesToday));
     setEl('statSalesTodaySub', `${todaySales.length} transaction${todaySales.length !== 1 ? 's' : ''}`);
     setEl('statProfitToday',   formatCurrency(profitToday));
@@ -152,6 +173,24 @@ const ROLE_BADGE_CLASS = {
 };
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// A commission month runs from the 15th to the 14th of the next month and is labelled by
+// the month it starts in (matches backend/src/services/commissionPeriod.js), so
+// month 9 = "15 Sep – 14 Oct".
+function commissionPeriodLabel(month, year) {
+    const next = month % 12;
+    const range = `15 ${MONTH_SHORT[month - 1]} – 14 ${MONTH_SHORT[next]}`;
+    if (!year) return range;
+    return month === 12 ? `15 Dec ${year} – 14 Jan ${Number(year) + 1}` : `${range} ${year}`;
+}
+
+// Start date of the commission month we're currently in, e.g. "15 Oct".
+function currentCommissionPeriodStart() {
+    const d = new Date();
+    const m = d.getDate() >= 15 ? d.getMonth() : (d.getMonth() + 11) % 12;
+    return `15 ${MONTH_SHORT[m]}`;
+}
 
 // The Month/Year filter is duplicated on both the "Your Commission" and "Commission by
 // Staff" cards so either one can be used — they're kept in sync and drive the same fetch.
@@ -159,6 +198,15 @@ function initCommissionFilters() {
     const yearSelects = [document.getElementById('commissionYearFilter'), document.getElementById('commissionByStaffYearFilter')].filter(Boolean);
     const monthSelects = [document.getElementById('commissionMonthFilter'), document.getElementById('commissionByStaffMonthFilter')].filter(Boolean);
     if (!yearSelects.length || yearSelects[0].options.length) return; // already populated
+
+    monthSelects.forEach(sel => {
+        for (const opt of sel.options) {
+            if (opt.value) opt.textContent = commissionPeriodLabel(Number(opt.value));
+        }
+    });
+    document.querySelectorAll('.commission-period-label').forEach(el => {
+        el.textContent = `Since ${currentCommissionPeriodStart()}`;
+    });
 
     const currentYear = new Date().getFullYear();
     yearSelects.forEach(sel => {
@@ -197,7 +245,7 @@ async function renderCommission() {
         setEl('commissionMonth', formatCurrency(summary.mine.month));
         setEl('commissionYear',  formatCurrency(summary.mine.year));
 
-        const selectedLabel = month ? `${MONTH_NAMES[parseInt(month, 10) - 1]} ${year}` : (year ? `All of ${year}` : 'Selected Period');
+        const selectedLabel = month ? commissionPeriodLabel(parseInt(month, 10), year) : (year ? `All of ${year}` : 'Selected Period');
         setEl('commissionSelectedLabel', selectedLabel);
         setEl('commissionSelected', formatCurrency(summary.mine.selected || 0));
 
@@ -286,7 +334,7 @@ function renderMySettlementBar(mine, year, month, selectedLabel) {
 
 // Payment-status cell for one staff row in the Commission by Staff table.
 function renderStaffPaymentStatus(s, year, month) {
-    if (!month) return `<span style="color:var(--text-light);font-size:0.8rem;">Pick a month</span>`;
+    if (!month) return `<span style="color:var(--text-light);font-size:0.8rem;">Pick a period</span>`;
     if (!Number(s.selected)) return `<span style="color:var(--text-light);font-size:0.8rem;">—</span>`;
 
     const staffBadge = s.staff_confirmed_at
@@ -320,7 +368,7 @@ function showNextPendingConfirmation() {
     if (!_pendingMineQueue.length) return;
     const item = _pendingMineQueue[0];
     setEl('commissionConfirmAmount', formatCurrency(item.total));
-    setEl('commissionConfirmPeriod', `${MONTH_NAMES[item.month - 1]} ${item.year}`);
+    setEl('commissionConfirmPeriod', commissionPeriodLabel(item.month, item.year));
     openModal('commissionConfirmModal');
 }
 
@@ -335,7 +383,7 @@ async function confirmMyCommissionFromModal() {
     if (btn) btn.disabled = true;
     try {
         await api.post('/api/commission/confirm-mine', { year: item.year, month: item.month });
-        showToast(`Confirmed for ${MONTH_NAMES[item.month - 1]} ${item.year}. Thank you!`, 'success');
+        showToast(`Confirmed for ${commissionPeriodLabel(item.month, item.year)}. Thank you!`, 'success');
         _pendingMineQueue.shift();
         if (_pendingMineQueue.length) {
             showNextPendingConfirmation();
@@ -372,7 +420,7 @@ function renderAdminConfirmList(rows) {
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border);" data-user="${r.user_id}">
             <div>
                 <strong>${escHtml(r.name)}</strong><br>
-                <span style="font-size:0.8rem;color:var(--text-light);">${MONTH_NAMES[r.month - 1]} ${r.year} — ${formatCurrency(r.total)}</span>
+                <span style="font-size:0.8rem;color:var(--text-light);">${commissionPeriodLabel(r.month, r.year)} — ${formatCurrency(r.total)}</span>
             </div>
             <button class="btn btn-primary btn-sm" data-mark-paid="${r.user_id}" data-year="${r.year}" data-month="${r.month}">Mark Paid</button>
         </div>`).join('');

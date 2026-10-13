@@ -146,6 +146,24 @@
                             <div class="stat-link-hint">View Inventory &rarr;</div>
                         </div>
                     </a>
+                    <a href="reports.html" class="stat-card teal nav-admin hidden">
+                        <div class="stat-icon-wrap">🏦</div>
+                        <div class="stat-body">
+                            <div class="stat-label" id="statEverCostValueLabel">All Stock Ever Stored (Cost)</div>
+                            <div class="stat-value currency" id="statEverCostValue">Le 0</div>
+                            <div class="stat-change" id="statEverCostSub"></div>
+                            <div class="stat-link-hint">View Stock Report &rarr;</div>
+                        </div>
+                    </a>
+                    <a href="reports.html" class="stat-card gold">
+                        <div class="stat-icon-wrap">🏆</div>
+                        <div class="stat-body">
+                            <div class="stat-label" id="statEverSellingValueLabel">All Stock Ever Stored (Selling)</div>
+                            <div class="stat-value currency" id="statEverSellingValue">Le 0</div>
+                            <div class="stat-change" id="statEverSellingSub"></div>
+                            <div class="stat-link-hint">View Stock Report &rarr;</div>
+                        </div>
+                    </a>
                     <a href="sales.html" class="stat-card green">
                         <div class="stat-icon-wrap">💰</div>
                         <div class="stat-body">
@@ -255,8 +273,8 @@
                     <div class="chart-header">
                         <span class="chart-title">Your Commission</span>
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                            <select class="form-control" id="commissionMonthFilter" style="max-width:140px;">
-                                <option value="">All Months</option>
+                            <select class="form-control" id="commissionMonthFilter" style="max-width:160px;">
+                                <option value="">All Periods</option>
                                 <option value="1">January</option>
                                 <option value="2">February</option>
                                 <option value="3">March</option>
@@ -291,7 +309,7 @@
                         <div class="stat-card purple" style="cursor:default;">
                             <div class="stat-icon-wrap">🗓️</div>
                             <div class="stat-body">
-                                <div class="stat-label">This Month</div>
+                                <div class="stat-label commission-period-label">This Period</div>
                                 <div class="stat-value currency" id="commissionMonth">Le 0</div>
                             </div>
                         </div>
@@ -318,8 +336,8 @@
                     <div class="chart-header">
                         <span class="chart-title">Commission by Staff</span>
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                            <select class="form-control" id="commissionByStaffMonthFilter" style="max-width:140px;">
-                                <option value="">All Months</option>
+                            <select class="form-control" id="commissionByStaffMonthFilter" style="max-width:160px;">
+                                <option value="">All Periods</option>
                                 <option value="1">January</option>
                                 <option value="2">February</option>
                                 <option value="3">March</option>
@@ -344,7 +362,7 @@
                                     <th>Role</th>
                                     <th>Today</th>
                                     <th>This Week</th>
-                                    <th>This Month</th>
+                                    <th class="commission-period-label">This Period</th>
                                     <th>This Year</th>
                                     <th id="commissionByStaffSelectedHeader">Selected Period</th>
                                     <th>Payment Status</th>
@@ -543,7 +561,7 @@
         </div>
         <div class="modal-body">
             <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">
-                These staff members earned commission in a month that's already ended. Confirm once you've paid them.
+                These staff members earned commission in a commission month (15th – 14th) that's already ended. Confirm once you've paid them.
             </p>
             <div id="commissionAdminConfirmList"></div>
         </div>
