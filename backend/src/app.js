@@ -57,6 +57,7 @@ app.use('/api/sales',      salesRouter);
 app.use('/api/customers',  customersRouter);
 app.use('/api/users',      usersRouter);
 app.use('/api/shops',      shopsRouter);
+app.use('/api/expenditures', require('./routes/expenditures'));
 app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/settings',   settingsRouter);
 app.use('/api/activity',   activityRouter);

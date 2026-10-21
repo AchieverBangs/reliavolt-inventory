@@ -618,3 +618,16 @@ BEGIN
         UPDATE settings SET seeded = TRUE WHERE id = 1;
     END IF;
 END $$;
+
+-- Independent expenditure ledger; never used in sales, stock or balance calculations.
+CREATE TABLE IF NOT EXISTS expenditures (
+ id SERIAL PRIMARY KEY,
+ expense_date DATE NOT NULL,
+ description VARCHAR(500) NOT NULL,
+ category VARCHAR(100) NOT NULL DEFAULT 'General',
+ amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+ shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL,
+ created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS expenditures_shop_date_idx ON expenditures(shop_id, expense_date);

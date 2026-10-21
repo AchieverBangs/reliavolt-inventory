@@ -1,0 +1,116 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shops — Reliavolt Supply</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item active nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Expenditure</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+ <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+ <h2>Expenditure</h2><p>Expenses are recorded separately and do not change sales, stock, profit, commission, or existing balances.</p>
+ <form id="expenditureForm">
+ <div class="form-row">
+ <div class="form-group"><label for="expenseDate">Date *</label><input class="form-control" type="date" id="expenseDate" required></div>
+ <div class="form-group"><label for="expenseShop">Shop *</label><select class="form-control" id="expenseShop" required></select></div></div>
+ <div class="form-group"><label for="expenseDescription">Description *</label><input class="form-control" id="expenseDescription" maxlength="500" required placeholder="What was paid for?"></div>
+ <div class="form-row"><div class="form-group"><label for="expenseCategory">Category *</label><input class="form-control" id="expenseCategory" maxlength="100" value="General" required></div>
+ <div class="form-group"><label for="expenseAmount">Amount *</label><input class="form-control" type="number" id="expenseAmount" min="0.01" max="999999999999.99" step="0.01" required></div></div>
+ <button class="btn btn-primary" id="saveExpenditure" type="submit" disabled>Record expenditure</button></form>
+ <p id="expenseMessage" role="status" aria-live="polite"></p></div>
+ <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Expenditure records</h2><button type="button" class="btn btn-secondary" id="refreshExpenses">Refresh</button></div>
+ <div class="form-row"><div class="form-group"><label for="filterFrom">From</label><input class="form-control" type="date" id="filterFrom"></div><div class="form-group"><label for="filterTo">To</label><input class="form-control" type="date" id="filterTo"></div></div>
+ <p>Total expenditure (shown records): <strong id="expenseTotal">?</strong></p>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Shop</th><th>Amount</th><th>Recorded by</th></tr></thead><tbody id="expenseRows"><tr><td colspan="6">Loading expenditure?</td></tr></tbody></table></div></div>
+ </main>
+    </div>
+</div>
+
+<script src="api.js"></script>
+<script src="app.js"></script>
+<script src="expenditures.js"></script>
+</body>
+</html>

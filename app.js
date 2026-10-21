@@ -237,7 +237,7 @@ function applyRoleBasedNav() {
     const isDriver = role === 'Delivery Person';
     document.querySelectorAll('.nav-admin').forEach(el => el.classList.toggle('hidden', !admin));
     if (isDriver) {
-        const blocked = ['inventory.html', 'sales.html', 'customers.html', 'reports.html', 'settings.html'];
+        const blocked = ['expenditures.html', 'inventory.html', 'sales.html', 'customers.html', 'reports.html', 'settings.html'];
         document.querySelectorAll('.nav-item').forEach(el => {
             const href = el.getAttribute('href') || '';
             if (blocked.some(b => href === b || href.endsWith('/' + b))) el.classList.add('hidden');
