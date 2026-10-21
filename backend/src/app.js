@@ -43,7 +43,11 @@ app.use(cors({
 app.use(express.json());
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'Reliavolt Supply API' }));
+app.get('/api/health', (req, res) => res.json({
+    status: 'ok', app: 'Reliavolt Supply API',
+    revision: process.env.RAILWAY_GIT_COMMIT_SHA || null,
+    features: ['expenditures'],
+}));
 
 // Routes
 app.use('/api/auth', authRouter); // mounted first, so a login/password request never hits requireWrite below

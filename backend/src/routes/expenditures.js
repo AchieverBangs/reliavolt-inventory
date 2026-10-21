@@ -7,7 +7,7 @@ router.get('/', async (req, res, next) => {
  try {
   const scoped = req.user.role !== 'Admin';
   if (scoped && !req.user.shopId) return res.json([]);
-  const { rows } = await pool.query('SELECT e.*, s.name AS shop_name, u.name AS recorded_by FROM expenditures e LEFT JOIN shops s ON s.id=e.shop_id LEFT JOIN users u ON u.id=e.created_by ' + (scoped ? 'WHERE e.shop_id=$1 ' : '') + 'ORDER BY e.expense_date DESC, e.id DESC', scoped ? [req.user.shopId] : []);
+  const { rows } = await pool.query('SELECT e.*, e.expense_date::text AS expense_date, s.name AS shop_name, u.name AS recorded_by FROM expenditures e LEFT JOIN shops s ON s.id=e.shop_id LEFT JOIN users u ON u.id=e.created_by ' + (scoped ? 'WHERE e.shop_id=$1 ' : '') + 'ORDER BY e.expense_date DESC, e.id DESC', scoped ? [req.user.shopId] : []);
   res.json(rows);
  } catch (err) { next(err); }
 });
@@ -24,7 +24,7 @@ router.post('/', async (req, res, next) => {
  const shopId = req.user.role === 'Admin' ? req.body.shop_id : req.user.shopId;
  if (!Number.isSafeInteger(Number(shopId)) || Number(shopId) <= 0) return res.status(400).json({ error: 'A shop must be assigned.' });
  try {
-  const { rows } = await pool.query('INSERT INTO expenditures (expense_date, description, category, amount, shop_id, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *', [expense_date, description.trim(), category.trim(), amountText, shopId, req.user.id]);
+  const { rows } = await pool.query('INSERT INTO expenditures (expense_date, description, category, amount, shop_id, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *, expense_date::text AS expense_date', [expense_date, description.trim(), category.trim(), amountText, shopId, req.user.id]);
   res.status(201).json(rows[0]);
  } catch (err) {
   if (err.code === '23503') return res.status(400).json({ error: 'Selected shop does not exist.' });

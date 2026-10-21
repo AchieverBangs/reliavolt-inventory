@@ -35,6 +35,8 @@ test('GET /api/health returns ok', async () => {
     const res = await request(app).get('/api/health');
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.status, 'ok');
+    assert.ok(res.body.features.includes('expenditures'));
+    assert.ok(Object.hasOwn(res.body, 'revision'));
 });
 
 test('unknown route returns 404', async () => {
