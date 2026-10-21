@@ -4,7 +4,7 @@
     <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shops — Reliavolt Supply</title>
+    <title>Expenditure ? Reliavolt Supply</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="admin.css">
     <link rel="stylesheet" href="pages.css">
@@ -25,7 +25,6 @@
             <button class="sidebar-close" id="sidebarClose">&times;</button>
         </div>
         <nav class="sidebar-nav">
-            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
             <a href="dashboard.html" class="nav-item">
                 <span class="nav-icon">📊</span>
                 <span class="nav-label">Dashboard</span>
@@ -58,6 +57,7 @@
                 <span class="nav-icon">📈</span>
                 <span class="nav-label">Reports</span>
             </a>
+            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
             <a href="settings.html" class="nav-item">
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-label">Settings</span>
@@ -91,7 +91,7 @@
 
         <main class="page-content">
  <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
- <h2>Expenditure</h2><p>Expenses are recorded separately and do not change sales, stock, profit, commission, or existing balances.</p>
+ <h2>Record expenditure</h2>
  <form id="expenditureForm">
  <div class="form-row">
  <div class="form-group"><label for="expenseDate">Date *</label><input class="form-control" type="date" id="expenseDate" required></div>

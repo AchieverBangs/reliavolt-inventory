@@ -7,6 +7,9 @@ let expenditureRecords = [];
 document.addEventListener('DOMContentLoaded', async () => {
  const el = id => document.getElementById(id);
  const message = text => { el('expenseMessage').textContent = text; };
+ const errorMessage = err => /Route\s+\w+\s+\/api\/|HTTP 404/i.test(err.message)
+  ? 'Expenditure recording is temporarily unavailable. Please try again later.'
+  : err.message;
  const render = () => {
   const from = el('filterFrom').value, to = el('filterTo').value;
   if (from && to && from > to) { message('From date must be before To date.'); return; }
@@ -24,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
  el('filterFrom').addEventListener('change', render);
  el('filterTo').addEventListener('change', render);
  el('refreshExpenses').addEventListener('click', async () => {
-  try { await load(); message(''); } catch(err) { message(err.message); }
+  try { await load(); message(''); } catch(err) { message(errorMessage(err)); }
  });
  el('expenditureForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -39,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    saved = true;
    el('expenseDescription').value = ''; el('expenseAmount').value = '';
    await load(); message('Expenditure recorded.');
-  } catch(err) { message(saved ? 'Expenditure saved. Could not refresh records; use Refresh to try again.' : err.message); }
+  } catch(err) { message(saved ? 'Expenditure saved. Could not refresh records; use Refresh to try again.' : errorMessage(err)); }
   finally { button.disabled = false; }
  });
  try {
@@ -53,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   el('saveExpenditure').disabled = !available.length;
   if (!available.length) message('A shop must be assigned before you can record expenditure.');
  } catch(err) {
-  message(err.message);
+  message(errorMessage(err));
   el('expenseRows').innerHTML = '<tr><td colspan="6">Unable to load expenditure. Use Refresh to retry.</td></tr>';
  }
 });
