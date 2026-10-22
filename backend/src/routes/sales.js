@@ -280,7 +280,7 @@ router.post('/', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
             // ever been deleted, producing a number that collides with a receipt still in
             // the table and fails the unique constraint on receipt_no.
             const { rows: seqRows } = await client.query("SELECT nextval(pg_get_serial_sequence('sales', 'id')) AS next_val");
-            const receiptNo = `RV-${2000 + parseInt(seqRows[0].next_val, 10)}`;
+            const receiptNo = `RVS-${String(seqRows[0].next_val).padStart(10, '0')}`;
             if (!invoiceNo) invoiceNo = receiptNo;
 
             const unitPrice  = parseFloat(product.selling_price);

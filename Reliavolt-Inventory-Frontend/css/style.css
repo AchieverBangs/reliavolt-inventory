@@ -1367,7 +1367,34 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
 
 #invoicePrintArea { display: none; }
 
+/* Sales receipt: restrained typography, clear totals, no empty ruled rows. */
+.invoice { padding: 24px; font-family: Arial, sans-serif; line-height: 1.5; border-top: 5px solid #173655; }
+.inv-head { margin-bottom: 24px; }
+.inv-logo { width: 56px; height: 56px; }
+.inv-company { font-family: Arial, sans-serif; font-size: 22px; letter-spacing: 0.03em; color: #173655; }
+.inv-titlebar { justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 0; margin: 0 0 20px; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }
+.inv-title { font-size: 14px; color: #173655; }
+.inv-number { position: static; font-size: 11px; color: #475569; }
+.inv-number strong { display: block; color: #173655; font-size: 13px; overflow-wrap: anywhere; }
+.inv-field { margin-bottom: 8px; }
+.inv-label { color: #475569; font-size: 11px; }
+.inv-fill { border: 0; padding: 0; }
+.inv-table { border: 0; margin-top: 22px; }
+.inv-table th { border: 0; border-bottom: 2px solid #173655; padding: 10px 6px; background: #f1f5f9; color: #173655; font-size: 10px; }
+.inv-table td { border: 0; border-bottom: 1px solid #e2e8f0; padding: 12px 6px; }
+.inv-table tr { break-inside: avoid; }
+.inv-foot { border: 0; padding-top: 16px; flex-wrap: wrap; }
+.inv-note { padding: 0; flex: 1 1 150px; color: #475569; font-size: 11px; }
+.inv-total { margin-left: auto; padding: 10px 12px; border-top: 2px solid #173655; gap: 16px; }
+.inv-total strong { border: 0; padding: 0; font-size: 20px; }
+.inv-credit { flex-wrap: wrap; }
+.inv-status { margin-top: 20px; text-align: right; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #173655; }
+.inv-thanks { border-top: 1px solid #cbd5e1; margin-top: 24px; padding-top: 16px; text-align: center; font-size: 12px; }
+.inv-thanks small { color: #64748b; font-size: 10px; }
+.inv-draft { padding: 8px; margin-bottom: 12px; background: #f1f5f9; font-size: 11px; text-align: center; }
+
 @media print {
+    body.invoice-printing > :not(#invoicePrintArea) { display: none !important; }
     body.invoice-printing * { visibility: hidden; }
     body.invoice-printing #invoicePrintArea,
     body.invoice-printing #invoicePrintArea * { visibility: visible; }
@@ -1381,4 +1408,5 @@ tfoot td { padding: 0.75rem 1rem; font-weight: 600; border-top: 2px solid var(--
     }
     body.invoice-printing .inv-no-print { display: none; }
     .invoice { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .inv-foot, .inv-credit, .inv-status, .inv-thanks { break-inside: avoid; }
 }

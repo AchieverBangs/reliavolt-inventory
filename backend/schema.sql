@@ -200,6 +200,30 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(50);
 UPDATE sales SET invoice_no = receipt_no WHERE invoice_no IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sales_invoice_no ON sales(invoice_no);
 
+-- Permanent register: deleting a sale must never release its receipt number.
+CREATE TABLE IF NOT EXISTS issued_receipt_numbers (
+    receipt_no VARCHAR(50) PRIMARY KEY,
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO issued_receipt_numbers (receipt_no)
+SELECT receipt_no FROM sales ON CONFLICT DO NOTHING;
+
+CREATE OR REPLACE FUNCTION protect_sale_receipt_number() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO issued_receipt_numbers (receipt_no) VALUES (NEW.receipt_no);
+    ELSIF NEW.receipt_no IS DISTINCT FROM OLD.receipt_no
+       OR NEW.invoice_no IS DISTINCT FROM OLD.invoice_no THEN
+        RAISE EXCEPTION 'Receipt numbers cannot be changed after a sale is recorded';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS protect_sale_receipt_number ON sales;
+CREATE TRIGGER protect_sale_receipt_number
+BEFORE INSERT OR UPDATE OF receipt_no, invoice_no ON sales
+FOR EACH ROW EXECUTE FUNCTION protect_sale_receipt_number();
+
 -- Each payment a customer makes toward their running credit_balance (see customers
 -- above). Independent of any one sale — a payment just pays down the running total,
 -- the same way a shopkeeper's paper ledger would.

@@ -687,9 +687,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSalesByProduct();
     });
     document.getElementById('printReceiptBtn')?.addEventListener('click', () => {
-        const data = lastInvoice || currentInvoiceData();
-        if (!data.lines.length) { showToast('Add a product to the invoice first.', 'error'); return; }
-        printInvoiceHtml(renderInvoiceHtml(data));
+        if (!lastInvoice) { showToast('Record the sale before printing its receipt.', 'error'); return; }
+        printInvoiceByNo(lastInvoice.invoiceNo);
     });
     document.getElementById('addToInvoiceBtn')?.addEventListener('click', addToInvoice);
     document.getElementById('saleDate')?.addEventListener('change', updateReceiptPreview);

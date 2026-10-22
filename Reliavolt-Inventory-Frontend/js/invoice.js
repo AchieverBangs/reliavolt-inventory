@@ -2,10 +2,9 @@
 // One shared layout for every sale and credit-sale invoice — the Sales page preview,
 // printing right after a sale, and reprinting from Recent Sales or a customer's credit
 // history all render through renderInvoiceHtml(), so they always look the same.
-// Modelled on the shop's paper invoice book: company header, Name / Address / Date,
-// a QTY | DESCRIPTION | UNIT PRICE | AMOUNT table, TOTAL, and signature lines.
+// Professional sales receipt shared by the saved-sale preview and reprints.
 
-const INVOICE_MIN_ROWS = 8; // blank ruled rows pad a short invoice, like the paper book
+const INVOICE_MIN_ROWS = 0;
 
 function invoiceEsc(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -13,7 +12,7 @@ function invoiceEsc(str) {
 
 // Plain grouped number with no currency prefix — the currency is printed once, on TOTAL.
 function invoiceAmount(n) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function invoiceDate(d) {
@@ -32,9 +31,11 @@ function renderInvoiceHtml(data) {
     const lines    = data.lines || [];
     const total    = lines.reduce((sum, l) => sum + Number(l.amount || 0), 0);
     const phones   = (settings.company_phone || '').split(',').map(p => p.trim()).filter(Boolean);
+    const saved = Boolean(data.invoiceNo && data.invoiceNo !== '—');
+    const paid = data.paymentMethod === 'Credit' ? Math.min(total, Math.max(0, Number(data.amountPaid || 0))) : total;
 
     const rows = lines.map((l, i) => `<tr>
-            <td class="inv-c">${invoiceAmount(l.qty)}</td>
+            <td class="inv-c">${invoiceEsc(l.qty)}</td>
             <td>${invoiceEsc(l.description)}${data.removable ? ` <button type="button" class="inv-remove inv-no-print" data-remove-line="${i}" title="Remove line">&times;</button>` : ''}</td>
             <td class="inv-r">${invoiceAmount(l.unitPrice)}</td>
             <td class="inv-r">${invoiceAmount(l.amount)}</td>
@@ -59,16 +60,17 @@ function renderInvoiceHtml(data) {
             ${phones.length ? `<div class="inv-phones">Tel: ${phones.map(invoiceEsc).join(' &nbsp;&bull;&nbsp; ')}</div>` : ''}
         </div>
         <div class="inv-titlebar">
-            <span class="inv-title">INVOICE</span>
-            <span class="inv-number">No <strong>${invoiceEsc(data.invoiceNo || '—')}</strong></span>
+            <span class="inv-title">${saved ? 'SALES RECEIPT' : 'SALE PREVIEW'}</span>
+            <span class="inv-number">Receipt no.<strong>${saved ? invoiceEsc(data.invoiceNo) : 'Assigned after sale is saved'}</strong></span>
         </div>
-        <div class="inv-field"><span class="inv-label">Name:</span><span class="inv-fill">${invoiceEsc(data.customerName || 'Walk-in Customer')}</span></div>
+        ${!saved ? '<div class="inv-draft">DRAFT · Record this sale to issue a receipt</div>' : ''}
+        <div class="inv-field"><span class="inv-label">Customer:</span><span class="inv-fill">${invoiceEsc(data.customerName || 'Walk-in Customer')}</span></div>
         <div class="inv-fieldrow">
-            <div class="inv-field"><span class="inv-label">Address:</span><span class="inv-fill">${invoiceEsc(data.customerContact || '')}</span></div>
+            <div class="inv-field"><span class="inv-label">Contact:</span><span class="inv-fill">${invoiceEsc(data.customerContact || '—')}</span></div>
             <div class="inv-field inv-date"><span class="inv-label">Date:</span><span class="inv-fill">${invoiceDate(data.date)}</span></div>
         </div>
         <table class="inv-table">
-            <thead><tr><th class="inv-qty">QTY.</th><th>DESCRIPTION</th><th class="inv-price">UNIT<br>PRICE</th><th class="inv-amt">AMOUNT</th></tr></thead>
+            <thead><tr><th class="inv-qty">QTY.</th><th>DESCRIPTION</th><th class="inv-price">UNIT PRICE</th><th class="inv-amt">AMOUNT</th></tr></thead>
             <tbody>${rows}${filler}</tbody>
         </table>
         <div class="inv-foot">
@@ -76,10 +78,8 @@ function renderInvoiceHtml(data) {
             <div class="inv-total"><span>TOTAL ${invoiceEsc(currency)}</span><strong>${invoiceAmount(total)}</strong></div>
         </div>
         ${creditBlock}
-        <div class="inv-sign">
-            <span>Manager's sign: <span class="inv-sign-line"></span></span>
-            <span>Customer's sign: <span class="inv-sign-line"></span></span>
-        </div>
+        <div class="inv-status">${paid < total ? 'PART PAYMENT' : 'PAID IN FULL'}${!saved ? ' · PREVIEW' : ''}</div>
+        <div class="inv-thanks">Thank you for choosing ${invoiceEsc(settings.company_name || 'Reliavolt Supply')}.<br><small>Please retain this receipt as your proof of purchase.</small></div>
     </div>`;
 }
 
@@ -87,7 +87,7 @@ function renderInvoiceHtml(data) {
 function invoiceDataFromLines(invoice, settings) {
     const lines = invoice.lines || [];
     const first = lines[0] || {};
-    const credit = lines.reduce((sum, l) => sum + Number(l.credit_amount || 0), 0);
+    const credit = lines.reduce((sum, l) => sum + Math.max(0, Number(l.credit_amount || 0) - Number(l.credit_amount_paid || 0)), 0);
     const total  = lines.reduce((sum, l) => sum + Number(l.total || 0), 0);
     return {
         settings,
