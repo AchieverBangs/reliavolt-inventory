@@ -670,3 +670,16 @@ CREATE TABLE IF NOT EXISTS deposits (
  UNIQUE(shop_id, receipt_number)
 );
 CREATE INDEX IF NOT EXISTS deposits_shop_user_date_idx ON deposits(shop_id, created_by, deposit_date);
+
+-- Purchased goods remain outside saleable stock until received.
+CREATE TABLE IF NOT EXISTS pre_inventory (
+ id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100), brand VARCHAR(100), reference VARCHAR(100),
+ cost_price NUMERIC(14,2) NOT NULL CHECK(cost_price>=0), selling_price NUMERIC(14,2) NOT NULL CHECK(selling_price>=0),
+ quantity INTEGER NOT NULL CHECK(quantity>0), created_by INTEGER REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ received_at TIMESTAMPTZ, received_by INTEGER REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS pre_inventory_allocations (
+ id SERIAL PRIMARY KEY, pre_inventory_id INTEGER NOT NULL REFERENCES pre_inventory(id) ON DELETE CASCADE,
+ shop_id INTEGER NOT NULL REFERENCES shops(id), quantity INTEGER NOT NULL CHECK(quantity>0),
+ product_id INTEGER REFERENCES products(id) ON DELETE SET NULL, UNIQUE(pre_inventory_id,shop_id)
+);

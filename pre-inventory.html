@@ -1,0 +1,119 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-inventory - Reliavolt Supply</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+<a href="deposits.html" class="nav-item nav-deposits"><span class="nav-icon">&#127974;</span><span class="nav-label">Deposits</span></a>
+
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="pre-inventory.html" class="nav-item nav-admin active"><span class="nav-icon">&#128674;</span><span class="nav-label">Pre-inventory</span></a>
+            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Pre-inventory</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+<main class="page-content">
+ <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+ <h2 id="preFormTitle">Add goods awaiting arrival</h2><p>Record goods bought abroad and allocate the purchased quantity to shops. They become available for sale only after you transfer them to main inventory.</p>
+ <form id="preForm"><div class="form-row">
+ <div class="form-group"><label for="preName">Product name *</label><input class="form-control" id="preName" maxlength="255" required></div>
+ <div class="form-group"><label for="preReference">Purchase / shipment reference</label><input class="form-control" id="preReference" maxlength="100"></div></div>
+ <div class="form-row"><div class="form-group"><label for="preCategory">Category</label><input class="form-control" id="preCategory" maxlength="100"></div><div class="form-group"><label for="preBrand">Brand</label><input class="form-control" id="preBrand" maxlength="100"></div></div>
+ <div class="form-row"><div class="form-group"><label for="preCost">Purchase cost per unit *</label><input class="form-control" id="preCost" type="number" min="0" max="999999999999.99" step="0.01" required></div>
+ <div class="form-group"><label for="prePrice">Selling price per unit *</label><input class="form-control" id="prePrice" type="number" min="0" max="999999999999.99" step="0.01" required></div>
+ <div class="form-group"><label for="preQuantity">Total quantity purchased *</label><input class="form-control" id="preQuantity" type="number" min="1" max="2147483647" step="1" required></div></div>
+ <h3>Allocate quantities by shop</h3><p>Enter zero for shops receiving none. All allocated quantities must add up to the purchased quantity.</p><div id="preAllocations"></div><p id="preAllocationTotal" aria-live="polite"></p>
+ <button class="btn btn-primary" id="preSave" type="submit" disabled>Save pre-inventory</button> <button class="btn btn-secondary" id="preCancel" type="button" hidden>Cancel edit</button></form></div>
+ <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Pre-inventory</h2><button class="btn btn-secondary" id="preRefresh" type="button">Refresh</button></div><p id="preMessage" role="status" aria-live="polite"></p>
+ <div class="form-row"><div class="form-group"><label for="preFilterShop">Shop</label><select class="form-control" id="preFilterShop"><option value="">All shops</option></select></div><div class="form-group"><label for="preStatus">Status</label><select class="form-control" id="preStatus"><option value="pending">Awaiting arrival</option><option value="received">Transferred</option><option value="">All</option></select></div></div>
+ <p>Each transfer creates a product entry in each allocated shop, with the prices entered above.</p>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Product / reference</th><th>Quantity</th><th>Purchase cost / unit</th><th>Selling price / unit</th><th>Shop allocations</th><th>Status</th><th>Actions</th></tr></thead><tbody id="preRows"><tr><td colspan="7">Loading pre-inventory...</td></tr></tbody></table></div></div>
+ </main>
+    </div>
+</div>
+
+<script src="api.js?v=deposits-edit-1"></script>
+<script src="app.js?v=deposits-edit-1"></script>
+<script src="pre-inventory.js?v=1"></script>
+</body>
+</html>
