@@ -93,7 +93,7 @@
         </header>
 
 <main class="page-content">
- <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+ <div class="card" id="preEditor" style="padding:1.5rem;margin-bottom:1.5rem">
  <h2 id="preFormTitle">Add goods awaiting arrival</h2><p>Record goods bought abroad and allocate the purchased quantity to shops. They become available for sale only after you transfer them to main inventory.</p>
  <form id="preForm"><div class="form-row">
  <div class="form-group"><label for="preName">Product name *</label><input class="form-control" id="preName" maxlength="255" required></div>
@@ -102,18 +102,22 @@
  <div class="form-row"><div class="form-group"><label for="preCost">Purchase cost per unit *</label><input class="form-control" id="preCost" type="number" min="0" max="999999999999.99" step="0.01" required></div>
  <div class="form-group"><label for="prePrice">Selling price per unit *</label><input class="form-control" id="prePrice" type="number" min="0" max="999999999999.99" step="0.01" required></div>
  <div class="form-group"><label for="preQuantity">Total quantity purchased *</label><input class="form-control" id="preQuantity" type="number" min="1" max="2147483647" step="1" required></div></div>
+ <section aria-labelledby="preCommissionHeading"><h3 id="preCommissionHeading">Commission allocation by product</h3>
+ <p>Set a fixed commission for each unit sold of this product. It carries into each allocated shop when the goods arrive.</p>
+ <div class="form-row"><div class="form-group"><label for="preCommission">Commission per unit</label><input class="form-control" id="preCommission" type="number" min="0" max="999999999999.99" step="0.01" value="0" required></div>
+ <div class="form-group"><label for="preCommissionOwner">Commission recipient</label><select class="form-control" id="preCommissionOwner"><option value="">Person who makes the sale</option></select><small>Choose a person to always receive this product's commission, or leave it with the seller.</small></div></div></section>
  <h3>Allocate quantities by shop</h3><p>Enter zero for shops receiving none. All allocated quantities must add up to the purchased quantity.</p><div id="preAllocations"></div><p id="preAllocationTotal" aria-live="polite"></p>
  <button class="btn btn-primary" id="preSave" type="submit" disabled>Save pre-inventory</button> <button class="btn btn-secondary" id="preCancel" type="button" hidden>Cancel edit</button></form></div>
  <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Pre-inventory</h2><button class="btn btn-secondary" id="preRefresh" type="button">Refresh</button></div><p id="preMessage" role="status" aria-live="polite"></p>
  <div class="form-row"><div class="form-group"><label for="preFilterShop">Shop</label><select class="form-control" id="preFilterShop"><option value="">All shops</option></select></div><div class="form-group"><label for="preStatus">Status</label><select class="form-control" id="preStatus"><option value="pending">Awaiting arrival</option><option value="received">Transferred</option><option value="">All</option></select></div></div>
  <p>Each transfer creates a product entry in each allocated shop, with the prices entered above.</p>
- <div class="table-responsive"><table class="data-table"><thead><tr><th>Product / reference</th><th>Quantity</th><th>Purchase cost / unit</th><th>Selling price / unit</th><th>Shop allocations</th><th>Status</th><th>Actions</th></tr></thead><tbody id="preRows"><tr><td colspan="7">Loading pre-inventory...</td></tr></tbody></table></div></div>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Product / reference</th><th>Quantity</th><th>Purchase cost / unit</th><th>Selling price / unit</th><th>Commission / unit</th><th>Shop allocations</th><th>Status</th><th>Actions</th></tr></thead><tbody id="preRows"><tr><td colspan="8">Loading pre-inventory...</td></tr></tbody></table></div></div>
  </main>
     </div>
 </div>
 
 <script src="api.js?v=deposits-edit-1"></script>
 <script src="app.js?v=deposits-edit-1"></script>
-<script src="pre-inventory.js?v=1"></script>
+<script src="pre-inventory.js?v=2"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@ const pool=require('../src/db/pool');
 const app=require('../src/app');
 process.env.JWT_SECRET='pre-inventory-tests';
 const auth=(role='Admin')=>jwt.sign({id:1,role,shopId:3},process.env.JWT_SECRET);
-const goods={name:'Solar panel',category:'Solar',brand:'Brand',reference:'CHINA-1',cost_price:'120.50',selling_price:'200.00',quantity:10,allocations:[{shop_id:3,quantity:4},{shop_id:7,quantity:6}]};
+const goods={name:'Solar panel',category:'Solar',brand:'Brand',reference:'CHINA-1',cost_price:'120.50',selling_price:'200.00',commission:'5.25',commission_user_id:2,quantity:10,allocations:[{shop_id:3,quantity:4},{shop_id:7,quantity:6}]};
 async function database(handler,run){
     const original=pool.connect,calls=[];
     pool.connect=async()=>({query:async(sql,values)=>{calls.push({sql,values});return handler(sql,values);},release:()=>calls.push({sql:'RELEASE'})});
@@ -16,8 +16,20 @@ test('purchase costs and cross-shop allocations require admin authentication',as
     assert.equal((await request(app).get('/api/pre-inventory')).status,401);
     assert.equal((await request(app).get('/api/pre-inventory').auth(auth('Manager'),{type:'bearer'})).status,403);
 });
+test('every non-admin role is denied pre-inventory commission read, create, edit and transfer',async()=>{
+    const original=pool.query;
+    pool.query=async()=>({rows:[{can_write:true}]});
+    try{
+        for(const role of ['Manager','Cashier','Stock Manager','Delivery Person']){
+            for(const [method,url] of [['get','/api/pre-inventory'],['post','/api/pre-inventory'],['put','/api/pre-inventory/1'],['post','/api/pre-inventory/1/receive']]){
+                const response=await request(app)[method](url).auth(auth(role),{type:'bearer'}).send(goods);
+                assert.equal(response.status,403,role+' '+method+' '+url);
+            }
+        }
+    }finally{pool.query=original;}
+});
 test('rejects mismatched allocations, duplicate shops, fractional quantities and invalid prices',async()=>{
-    for(const patch of [{quantity:11},{quantity:1.5},{cost_price:'-1'},{selling_price:'2.001'},{allocations:[{shop_id:3,quantity:4},{shop_id:3,quantity:6}]},{name:' '}]){
+    for(const patch of [{quantity:11},{quantity:1.5},{cost_price:'-1'},{selling_price:'2.001'},{allocations:[{shop_id:3,quantity:4},{shop_id:3,quantity:6}]},{name:' '},{commission:'-1'},{commission:'1.001'},{commission_user_id:'2'},{commission_user_id:-1}]){
         assert.equal((await request(app).post('/api/pre-inventory').auth(auth(),{type:'bearer'}).send({...goods,...patch})).status,400);
     }
 });
@@ -25,6 +37,7 @@ test('saving goods only creates pre-inventory and allocations, without saleable 
     await database(sql=>({rows:sql.startsWith('INSERT INTO pre_inventory ')?[{id:8,...goods}]:[]}),async calls=>{
         assert.equal((await request(app).post('/api/pre-inventory').auth(auth(),{type:'bearer'}).send(goods)).status,201);
         assert.equal(calls.filter(c=>c.sql.startsWith('INSERT INTO pre_inventory_allocations')).length,2);
+        assert.deepEqual(calls.find(c=>c.sql.startsWith('INSERT INTO pre_inventory ')).values.slice(8),['5.25',2]);
         assert.ok(!calls.some(c=>/INSERT INTO (products|stock_movements)/.test(c.sql)));
         assert.ok(calls.some(c=>c.sql==='COMMIT'));
     });
@@ -37,6 +50,7 @@ test('arrival transfers exact allocated quantities and prices with stock history
         const products=calls.filter(c=>c.sql.includes('INSERT INTO products'));
         assert.deepEqual(products.map(c=>[c.values[3],c.values[4],c.values[5],c.values[6]]),[['120.50','200.00',4,3],['120.50','200.00',6,7]]);
         assert.equal(calls.filter(c=>c.sql.includes('INSERT INTO stock_movements')).length,2);
+        assert.deepEqual(products.map(c=>c.values.slice(8)),[['5.25',2],['5.25',2]]);
         assert.ok(calls.some(c=>c.sql.startsWith('UPDATE pre_inventory SET received_at')));
         assert.equal(calls.at(-2).sql,'COMMIT');
     });

@@ -683,3 +683,7 @@ CREATE TABLE IF NOT EXISTS pre_inventory_allocations (
  shop_id INTEGER NOT NULL REFERENCES shops(id), quantity INTEGER NOT NULL CHECK(quantity>0),
  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL, UNIQUE(pre_inventory_id,shop_id)
 );
+
+-- Product commission is preserved when incoming goods become saleable stock.
+ALTER TABLE pre_inventory ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(commission>=0);
+ALTER TABLE pre_inventory ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
