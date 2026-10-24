@@ -5,8 +5,8 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 router.use(verifyToken, requireRole('Admin', 'Manager'));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 4, fieldSize: 1024 } }).single('receipt');
-const scope = req => req.user.role === 'Admin' ? [] : [req.user.shopId, req.user.id];
-const where = 'd.shop_id=$1 AND d.created_by=$2';
+const scope = req => req.user.role === 'Admin' ? [] : [req.user.shopId];
+const where = 'd.shop_id=$1';
 router.get('/', async (req, res, next) => {
     try {
         const values = scope(req);

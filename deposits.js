@@ -8,7 +8,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         el('refreshDeposits').disabled = busy;
     };
     const render = () => {
-        el('depositRows').innerHTML = records.length ? records.map(row => '<tr><td>' + esc(row.deposit_date) +
+        const selectedShop = el('filterShop').value;
+        const shown = records.filter(row => !selectedShop || String(row.shop_id) === selectedShop);
+        const totals = new Map(shops.filter(shop => !selectedShop || String(shop.id) === selectedShop)
+            .map(shop => [String(shop.id), { name: shop.name, cents: 0, count: 0 }]));
+        for (const row of shown) {
+            const key = String(row.shop_id);
+            if (!totals.has(key)) totals.set(key, { name: row.shop_name || 'Unknown shop', cents: 0, count: 0 });
+            const total = totals.get(key);
+            total.cents += Math.round(Number(row.amount) * 100);
+            total.count++;
+        }
+        el('depositTotal').textContent = formatCurrency([...totals.values()].reduce((sum, row) => sum + row.cents, 0) / 100);
+        el('depositShopTotals').innerHTML = totals.size ? [...totals.values()].map(row => '<tr><td>' + esc(row.name) + '</td><td>' + row.count + '</td><td>' + esc(formatCurrency(row.cents / 100)) + '</td></tr>').join('') : '<tr><td colspan="3">No shops found.</td></tr>';
+        el('depositRows').innerHTML = shown.length ? shown.map(row => '<tr><td>' + esc(row.deposit_date) +
             '</td><td>' + esc(row.receipt_number) + '</td><td>' + esc(formatCurrency(row.amount)) +
             '</td><td>' + esc(row.shop_name) + '</td><td>' + esc(row.recorded_by) + '</td><td>' +
             esc(new Date(row.created_at).toLocaleString()) + '</td><td><button class="btn btn-secondary" type="button" data-receipt="' + Number(row.id) + '">Download receipt</button></td></tr>').join('') : '<tr><td colspan="7">No deposits recorded.</td></tr>';
@@ -25,6 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             el('depositShop').innerHTML = '<option value="">Select shop</option>' + shops.map(shop => '<option value="' + Number(shop.id) + '">' + esc(shop.name) + '</option>').join('');
             el('depositShop').value = shops.some(shop => String(shop.id) === selected) ? selected : shops.length === 1 ? shops[0].id : '';
             el('depositShop').disabled = !isAdmin();
+            const filter = el('filterShop').value;
+            el('filterShop').innerHTML = '<option value="">All shops</option>' + shops.map(shop => '<option value="' + Number(shop.id) + '">' + esc(shop.name) + '</option>').join('');
+            el('filterShop').value = shops.some(shop => String(shop.id) === filter) ? filter : '';
             records = rows; ready = true; render();
             if (!shops.length) message('A shop must be assigned before recording deposits.');
         } catch (err) { message(err.message); }
@@ -33,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const today = () => new Date().toISOString().slice(0, 10);
     el('depositDate').value = today(); el('depositDate').max = today();
     el('refreshDeposits').addEventListener('click', load);
+    el('filterShop').addEventListener('change', () => { if (ready) render(); });
     el('depositForm').addEventListener('submit', async event => {
         event.preventDefault();
         if (busy || !ready || !el('depositForm').reportValidity()) return;

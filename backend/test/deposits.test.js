@@ -30,9 +30,9 @@ test('backdated deposits use authenticated manager and assigned shop, with serve
         assert.match(insert.sql,/INSERT INTO deposits/);
         assert.doesNotMatch(insert.sql,/created_at\)/);
         await request(app).get('/api/deposits').auth(token('Manager'),{type:'bearer'});
-        assert.deepEqual(calls.at(-1).values,[7,2]);
+        assert.deepEqual(calls.at(-1).values,[7]);
         await request(app).get('/api/deposits/9/receipt').auth(token('Manager'),{type:'bearer'});
-        assert.deepEqual(calls.at(-1).values,[7,2,'9']);
+        assert.deepEqual(calls.at(-1).values,[7,'9']);
     } finally {pool.query=original;}
 });
 test('receipt downloads enforce scope and return the stored bytes', async () => {
@@ -40,8 +40,8 @@ test('receipt downloads enforce scope and return the stored bytes', async () => 
     const bytes=Buffer.from('%PDF-stored-receipt');
     try {
         pool.query=async(sql,values)=>{
-            assert.deepEqual(values,[7,2,'9']);
-            assert.match(sql,/d.shop_id=\$1 AND d.created_by=\$2/);
+            assert.deepEqual(values,[7,'9']);
+            assert.match(sql,/d.shop_id=\$1/);
             return {rows:[{receipt_type:'application/pdf',receipt_data:bytes}]};
         };
         const response=await request(app).get('/api/deposits/9/receipt').auth(token('Manager'),{type:'bearer'});

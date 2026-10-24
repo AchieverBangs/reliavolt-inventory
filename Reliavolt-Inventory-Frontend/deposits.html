@@ -28,11 +28,12 @@
             <button class="sidebar-close" id="sidebarClose">&times;</button>
         </div>
         <nav class="sidebar-nav">
-<a href="deposits.html" class="nav-item nav-deposits active"><span class="nav-icon">&#127974;</span><span class="nav-label">Deposits</span></a>
             <a href="dashboard.html" class="nav-item">
                 <span class="nav-icon">📊</span>
                 <span class="nav-label">Dashboard</span>
             </a>
+<a href="deposits.html" class="nav-item nav-deposits active"><span class="nav-icon">&#127974;</span><span class="nav-label">Deposits</span></a>
+
             <a href="inventory.html" class="nav-item">
                 <span class="nav-icon">📦</span>
                 <span class="nav-label">Inventory</span>
@@ -106,7 +107,11 @@
  <div class="form-group"><label for="bankReceipt">Bank receipt *</label><input class="form-control" type="file" id="bankReceipt" accept="application/pdf,image/jpeg,image/png" required><small>PDF, JPG or PNG, maximum 5 MB.</small></div>
  <button class="btn btn-primary" id="saveDeposit" type="submit" disabled>Record deposit</button></form><p id="depositMessage" role="status" aria-live="polite"></p></div>
  <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Deposit records</h2><button class="btn btn-secondary" id="refreshDeposits" type="button">Refresh</button></div>
- <div class="table-responsive"><table class="data-table"><thead><tr><th>Deposit date</th><th>Receipt number</th><th>Amount</th><th>Shop</th><th>Recorded by</th><th>Submitted at</th><th>Bank receipt</th></tr></thead><tbody id="depositRows"><tr><td colspan="7">Loading deposits...</td></tr></tbody></table></div></div>
+ <div class="form-group"><label for="filterShop">Filter by shop</label><select class="form-control" id="filterShop"><option value="">All shops</option></select></div>
+ <section aria-labelledby="depositTotalsHeading"><h3 id="depositTotalsHeading">Total deposits by shop</h3>
+ <p>Total deposits: <strong id="depositTotal">&mdash;</strong></p>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Shop</th><th>Number of deposits</th><th>Total deposited</th></tr></thead><tbody id="depositShopTotals"><tr><td colspan="3">Loading totals...</td></tr></tbody></table></div></section>
+ <h3>Deposit history</h3><div class="table-responsive"><table class="data-table"><thead><tr><th>Deposit date</th><th>Receipt number</th><th>Amount</th><th>Shop</th><th>Recorded by</th><th>Submitted at</th><th>Bank receipt</th></tr></thead><tbody id="depositRows"><tr><td colspan="7">Loading deposits...</td></tr></tbody></table></div></div>
  </main>
     </div>
 </div>
