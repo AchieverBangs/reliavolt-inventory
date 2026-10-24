@@ -16,12 +16,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const reset=()=>{
         editing=null;el('preForm').reset();el('preFormTitle').textContent='Add goods awaiting arrival';
-        el('preSave').textContent='Save pre-inventory';el('preCancel').hidden=true;el('preCommission').value='0';el('preCommissionOwner').value='';allocationTotal();
+        el('preSave').textContent='Save pre-inventory';el('preCancel').hidden=true;el('preCommission').value='0';allocationTotal();
     };
     const render=()=>{
         const shop=el('preFilterShop').value,status=el('preStatus').value;
         const shown=records.filter(row=>(!shop||row.allocations.some(a=>String(a.shop_id)===shop))&&(!status||(status==='received')===!!row.received_at));
-        el('preRows').innerHTML=shown.length?shown.map(row=>'<tr><td>'+esc(row.name)+'<br>'+esc(row.reference||'')+'</td><td>'+row.quantity+'</td><td>'+esc(formatCurrency(row.cost_price))+'</td><td>'+esc(formatCurrency(row.selling_price))+'</td><td>'+esc(formatCurrency(row.commission||0))+'<br>'+esc(users.find(user=>Number(user.id)===Number(row.commission_user_id))?.name||'Person who makes the sale')+'</td><td>'+row.allocations.map(a=>esc(a.shop_name)+': '+a.quantity).join('<br>')+'</td><td>'+ (row.received_at?'Transferred '+esc(new Date(row.received_at).toLocaleDateString()):'Awaiting arrival')+'</td><td>'+(row.received_at?'<a href="inventory.html">View inventory</a>':'<button type="button" class="btn btn-secondary" data-edit="'+row.id+'">Edit</button> <button type="button" class="btn btn-primary" data-receive="'+row.id+'">Arrived — transfer to inventory</button>')+'</td></tr>').join(''):'<tr><td colspan="8">No goods match these filters.</td></tr>';
+        el('preRows').innerHTML=shown.length?shown.map(row=>'<tr><td>'+esc(row.name)+'<br>'+esc(row.reference||'')+'</td><td>'+row.quantity+'</td><td>'+esc(formatCurrency(row.cost_price))+'</td><td>'+esc(formatCurrency(row.selling_price))+'</td><td>'+esc(formatCurrency(row.commission||0))+'</td><td>'+row.allocations.map(a=>esc(a.shop_name)+': '+a.quantity+' - '+esc(users.find(user=>Number(user.id)===Number(a.commission_user_id))?.name||'Person who makes the sale')).join('<br>')+'</td><td>'+ (row.received_at?'Transferred '+esc(new Date(row.received_at).toLocaleDateString()):'Awaiting arrival')+'</td><td>'+(row.received_at?'<a href="inventory.html">View inventory</a>':'<button type="button" class="btn btn-secondary" data-edit="'+row.id+'">Edit</button> <button type="button" class="btn btn-primary" data-receive="'+row.id+'">Arrived — transfer to inventory</button>')+'</td></tr>').join(''):'<tr><td colspan="8">No goods match these filters.</td></tr>';
     };
     const load=async()=>{
         if(busy)return;busy=true;controls();message('');
@@ -29,14 +29,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const [allShops,items,allUsers]=await Promise.all([get('/api/shops'),get('/api/pre-inventory'),get('/api/users')]);
             if(!allShops||!items||!allUsers)return;
             if(!Array.isArray(allShops)||!Array.isArray(items)||!Array.isArray(allUsers))throw new Error('Unexpected server response.');
-            const draft=new Map(shops.map(shop=>[shop.id,el('allocation-'+shop.id).value]));
+            const draft=new Map(shops.map(shop=>[shop.id,{quantity:el('allocation-'+shop.id).value,owner:el('recipient-'+shop.id).value}]));
             const selected=el('preFilterShop').value;
             shops=allShops;records=items;users=allUsers;
-            const owner=el('preCommissionOwner').value;
-            el('preCommissionOwner').innerHTML='<option value="">Person who makes the sale</option>'+users.map(user=>'<option value="'+Number(user.id)+'">'+esc(user.name)+'</option>').join('');
-            el('preCommissionOwner').value=users.some(user=>String(user.id)===owner)?owner:'';
-            el('preAllocations').innerHTML=shops.map(shop=>'<div class="form-group"><label for="allocation-'+Number(shop.id)+'">'+esc(shop.name)+'</label><input class="form-control" type="number" min="0" max="2147483647" step="1" value="0" id="allocation-'+Number(shop.id)+'" required></div>').join('');
-            for(const shop of shops)el('allocation-'+shop.id).value=draft.get(shop.id)||0;
+            el('preAllocations').innerHTML='<div class="table-responsive"><table class="data-table"><thead><tr><th>Shop</th><th>Quantity</th><th>Commission recipient</th></tr></thead><tbody>'+shops.map(shop=>'<tr><td>'+esc(shop.name)+'</td><td><input aria-label="Quantity for '+esc(shop.name)+'" class="form-control" type="number" min="0" max="2147483647" step="1" value="0" id="allocation-'+Number(shop.id)+'" required></td><td><select aria-label="Commission recipient for '+esc(shop.name)+'" class="form-control" id="recipient-'+Number(shop.id)+'"><option value="">Person who makes the sale</option>'+users.filter(user=>Number(user.shop_id)===Number(shop.id)).map(user=>'<option value="'+Number(user.id)+'">'+esc(user.name)+'</option>').join('')+'</select></td></tr>').join('')+'</tbody></table></div>';
+            for(const shop of shops){el('allocation-'+shop.id).value=draft.get(shop.id)?.quantity||0;el('recipient-'+shop.id).value=draft.get(shop.id)?.owner||'';}
             el('preFilterShop').innerHTML='<option value="">All shops</option>'+shops.map(shop=>'<option value="'+Number(shop.id)+'">'+esc(shop.name)+'</option>').join('');
             el('preFilterShop').value=shops.some(shop=>String(shop.id)===selected)?selected:'';
             ready=true;render();allocationTotal();
@@ -50,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     el('preRefresh').addEventListener('click',load);el('preCancel').addEventListener('click',()=>{if(!busy)reset();});
     el('preForm').addEventListener('submit',async event=>{
         event.preventDefault();if(busy||!ready||!el('preForm').reportValidity())return;
-        const body={name:el('preName').value.trim(),reference:el('preReference').value.trim(),category:el('preCategory').value.trim(),brand:el('preBrand').value.trim(),cost_price:el('preCost').value,selling_price:el('prePrice').value,commission:el('preCommission').value||'0',commission_user_id:el('preCommissionOwner').value?Number(el('preCommissionOwner').value):null,quantity:Number(el('preQuantity').value),allocations:shops.map(shop=>({shop_id:Number(shop.id),quantity:Number(el('allocation-'+shop.id).value)})).filter(a=>a.quantity>0)};
+        const body={name:el('preName').value.trim(),reference:el('preReference').value.trim(),category:el('preCategory').value.trim(),brand:el('preBrand').value.trim(),cost_price:el('preCost').value,selling_price:el('prePrice').value,commission:el('preCommission').value||'0',quantity:Number(el('preQuantity').value),allocations:shops.map(shop=>({shop_id:Number(shop.id),quantity:Number(el('allocation-'+shop.id).value),commission_user_id:el('recipient-'+shop.id).value?Number(el('recipient-'+shop.id).value):null})).filter(a=>a.quantity>0)};
         if(body.allocations.reduce((sum,a)=>sum+a.quantity,0)!==body.quantity){message('Shop allocations must add up to the purchased quantity.');return;}
         busy=true;controls();message('');let saved=false;
         try{const result=await (editing?api.put('/api/pre-inventory/'+editing,body):api.post('/api/pre-inventory',body));if(!result)return;reset();saved=true;}
@@ -64,10 +61,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const row=records.find(item=>Number(item.id)===Number(edit?edit.dataset.edit:receive.dataset.receive));
         if(!row||row.received_at)return;
         if(edit){
-            el('preCommission').value=row.commission??0;el('preCommissionOwner').value=row.commission_user_id??'';
+            el('preCommission').value=row.commission??0;
             editing=row.id;el('preFormTitle').textContent='Edit goods awaiting arrival';el('preSave').textContent='Save changes';el('preCancel').hidden=false;
             for(const [id,key] of [['preName','name'],['preReference','reference'],['preCategory','category'],['preBrand','brand'],['preCost','cost_price'],['prePrice','selling_price'],['preQuantity','quantity']])el(id).value=row[key]??'';
-            for(const shop of shops)el('allocation-'+shop.id).value=row.allocations.find(a=>Number(a.shop_id)===Number(shop.id))?.quantity||0;
+            for(const shop of shops){const allocation=row.allocations.find(a=>Number(a.shop_id)===Number(shop.id));el('allocation-'+shop.id).value=allocation?.quantity||0;el('recipient-'+shop.id).value=allocation?.commission_user_id??'';}
             allocationTotal();el('preForm').scrollIntoView({behavior:'smooth'});return;
         }
         if(!confirm('Have these goods arrived? Transfer '+row.quantity+' units of '+row.name+' to main inventory?\n'+row.allocations.map(a=>a.shop_name+': '+a.quantity).join('\n')+'\nThis creates a product entry in each shop and can only be done once.'))return;

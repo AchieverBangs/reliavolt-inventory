@@ -6,10 +6,10 @@ const pool=require('../src/db/pool');
 const app=require('../src/app');
 process.env.JWT_SECRET='pre-inventory-tests';
 const auth=(role='Admin')=>jwt.sign({id:1,role,shopId:3},process.env.JWT_SECRET);
-const goods={name:'Solar panel',category:'Solar',brand:'Brand',reference:'CHINA-1',cost_price:'120.50',selling_price:'200.00',commission:'5.25',commission_user_id:2,quantity:10,allocations:[{shop_id:3,quantity:4},{shop_id:7,quantity:6}]};
-async function database(handler,run){
+const goods={name:'Solar panel',category:'Solar',brand:'Brand',reference:'CHINA-1',cost_price:'120.50',selling_price:'200.00',commission:'5.25',quantity:10,allocations:[{shop_id:3,quantity:4,commission_user_id:2},{shop_id:7,quantity:6,commission_user_id:5}]};
+async function database(handler,run,recipientExists=true){
     const original=pool.connect,calls=[];
-    pool.connect=async()=>({query:async(sql,values)=>{calls.push({sql,values});return handler(sql,values);},release:()=>calls.push({sql:'RELEASE'})});
+    pool.connect=async()=>({query:async(sql,values)=>{calls.push({sql,values});return sql.startsWith('SELECT id FROM users')?{rows:recipientExists?[{id:values[0]}]:[]}:handler(sql,values);},release:()=>calls.push({sql:'RELEASE'})});
     try{await run(calls);}finally{pool.connect=original;}
 }
 test('purchase costs and cross-shop allocations require admin authentication',async()=>{
@@ -37,20 +37,21 @@ test('saving goods only creates pre-inventory and allocations, without saleable 
     await database(sql=>({rows:sql.startsWith('INSERT INTO pre_inventory ')?[{id:8,...goods}]:[]}),async calls=>{
         assert.equal((await request(app).post('/api/pre-inventory').auth(auth(),{type:'bearer'}).send(goods)).status,201);
         assert.equal(calls.filter(c=>c.sql.startsWith('INSERT INTO pre_inventory_allocations')).length,2);
-        assert.deepEqual(calls.find(c=>c.sql.startsWith('INSERT INTO pre_inventory ')).values.slice(8),['5.25',2]);
+        assert.deepEqual(calls.find(c=>c.sql.startsWith('INSERT INTO pre_inventory ')).values.slice(8),['5.25',null]);
+        assert.deepEqual(calls.filter(c=>c.sql.startsWith('INSERT INTO pre_inventory_allocations')).map(c=>c.values[3]),[2,5]);
         assert.ok(!calls.some(c=>/INSERT INTO (products|stock_movements)/.test(c.sql)));
         assert.ok(calls.some(c=>c.sql==='COMMIT'));
     });
 });
 test('arrival transfers exact allocated quantities and prices with stock history in one transaction',async()=>{
     let productId=100;
-    await database(sql=>({rows:sql.startsWith('SELECT * FROM pre_inventory WHERE')?[{id:8,...goods}]:sql.startsWith('SELECT * FROM pre_inventory_allocations')?[{id:1,shop_id:3,quantity:4},{id:2,shop_id:7,quantity:6}]:sql.includes('INSERT INTO products')?[{id:productId++}]:[]}),async calls=>{
+    await database(sql=>({rows:sql.startsWith('SELECT * FROM pre_inventory WHERE')?[{id:8,...goods}]:sql.startsWith('SELECT * FROM pre_inventory_allocations')?[{id:1,shop_id:3,quantity:4,commission_user_id:2},{id:2,shop_id:7,quantity:6,commission_user_id:5}]:sql.includes('INSERT INTO products')?[{id:productId++}]:[]}),async calls=>{
         assert.equal((await request(app).post('/api/pre-inventory/8/receive').auth(auth(),{type:'bearer'}).send({})).status,200);
-        assert.match(calls[1].sql,/FOR UPDATE/);
+        assert.match(calls.find(c=>c.sql.startsWith('SELECT * FROM pre_inventory WHERE')).sql,/FOR UPDATE/);
         const products=calls.filter(c=>c.sql.includes('INSERT INTO products'));
         assert.deepEqual(products.map(c=>[c.values[3],c.values[4],c.values[5],c.values[6]]),[['120.50','200.00',4,3],['120.50','200.00',6,7]]);
         assert.equal(calls.filter(c=>c.sql.includes('INSERT INTO stock_movements')).length,2);
-        assert.deepEqual(products.map(c=>c.values.slice(8)),[['5.25',2],['5.25',2]]);
+        assert.deepEqual(products.map(c=>c.values.slice(8)),[['5.25',2],['5.25',5]]);
         assert.ok(calls.some(c=>c.sql.startsWith('UPDATE pre_inventory SET received_at')));
         assert.equal(calls.at(-2).sql,'COMMIT');
     });
@@ -71,5 +72,20 @@ test('a failed shop insert rolls back the entire transfer',async()=>{
     },async calls=>{
         assert.equal((await request(app).post('/api/pre-inventory/8/receive').auth(auth(),{type:'bearer'}).send({})).status,500);
         assert.ok(calls.some(c=>c.sql==='ROLLBACK'));assert.ok(!calls.some(c=>c.sql==='COMMIT'));
+    });
+});
+test('cross-shop recipients are rejected on save and moved staff block transfer',async()=>{
+    await database(sql=>({rows:sql.startsWith('SELECT * FROM pre_inventory WHERE')?[{id:8,...goods}]:sql.startsWith('SELECT * FROM pre_inventory_allocations')?[{id:1,shop_id:3,quantity:4,commission_user_id:2},{id:2,shop_id:7,quantity:6,commission_user_id:5}]:[]}),async calls=>{
+        assert.equal((await request(app).post('/api/pre-inventory').auth(auth(),{type:'bearer'}).send(goods)).status,400);
+        assert.deepEqual(calls.find(c=>c.sql.startsWith('SELECT id FROM users')).values,[2,3]);
+        assert.equal((await request(app).post('/api/pre-inventory/8/receive').auth(auth(),{type:'bearer'}).send({})).status,409);
+        assert.ok(!calls.some(c=>c.sql.includes('INSERT INTO products')));
+        assert.ok(calls.some(c=>c.sql==='ROLLBACK'));
+    },false);
+});
+test('allocations without a recipient use the seller, never the legacy global recipient',async()=>{
+    await database(sql=>({rows:sql.startsWith('SELECT * FROM pre_inventory WHERE')?[{id:8,...goods,commission_user_id:99}]:sql.startsWith('SELECT * FROM pre_inventory_allocations')?[{id:1,shop_id:3,quantity:10,commission_user_id:null}]:sql.includes('INSERT INTO products')?[{id:9}]:[]}),async calls=>{
+        assert.equal((await request(app).post('/api/pre-inventory/8/receive').auth(auth(),{type:'bearer'}).send({})).status,200);
+        assert.equal(calls.find(c=>c.sql.includes('INSERT INTO products')).values[9],null);
     });
 });

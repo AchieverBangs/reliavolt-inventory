@@ -687,3 +687,14 @@ CREATE TABLE IF NOT EXISTS pre_inventory_allocations (
 -- Product commission is preserved when incoming goods become saleable stock.
 ALTER TABLE pre_inventory ADD COLUMN IF NOT EXISTS commission NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(commission>=0);
 ALTER TABLE pre_inventory ADD COLUMN IF NOT EXISTS commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+-- Move recipient ownership to each branch once. Retain legacy data for reference.
+DO $$
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='pre_inventory_allocations' AND column_name='commission_user_id') THEN
+  ALTER TABLE pre_inventory_allocations ADD COLUMN commission_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+  UPDATE pre_inventory_allocations a SET commission_user_id=p.commission_user_id
+   FROM pre_inventory p, users u
+   WHERE p.id=a.pre_inventory_id AND u.id=p.commission_user_id AND u.shop_id=a.shop_id;
+ END IF;
+END; $$;
