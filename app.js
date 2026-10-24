@@ -234,6 +234,7 @@ function initHeader() {
 function applyRoleBasedNav() {
     const role     = getCurrentUserRole();
     const admin    = role === 'Admin';
+    document.querySelectorAll('.nav-deposits').forEach(el => el.classList.toggle('hidden', !['Admin', 'Manager'].includes(role)));
     const isDriver = role === 'Delivery Person';
     document.querySelectorAll('.nav-admin').forEach(el => el.classList.toggle('hidden', !admin));
     if (isDriver) {

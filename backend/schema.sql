@@ -655,3 +655,18 @@ CREATE TABLE IF NOT EXISTS expenditures (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS expenditures_shop_date_idx ON expenditures(shop_id, expense_date);
+
+CREATE TABLE IF NOT EXISTS deposits (
+ id SERIAL PRIMARY KEY,
+ amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+ receipt_number VARCHAR(100) NOT NULL,
+ deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ shop_id INTEGER NOT NULL REFERENCES shops(id),
+ created_by INTEGER NOT NULL REFERENCES users(id),
+ receipt_name VARCHAR(255) NOT NULL,
+ receipt_type VARCHAR(30) NOT NULL CHECK (receipt_type IN ('application/pdf','image/jpeg','image/png')),
+ receipt_data BYTEA NOT NULL CHECK (octet_length(receipt_data) BETWEEN 1 AND 5242880),
+ UNIQUE(shop_id, receipt_number)
+);
+CREATE INDEX IF NOT EXISTS deposits_shop_user_date_idx ON deposits(shop_id, created_by, deposit_date);

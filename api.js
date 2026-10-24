@@ -22,7 +22,7 @@ function getTokenPayload() {
 // ===== FETCH WRAPPER =====
 async function apiFetch(path, options = {}) {
     const token = getToken();
-    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    const headers = { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(options.headers || {}) };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     let res;

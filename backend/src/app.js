@@ -46,7 +46,7 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({
     status: 'ok', app: 'Reliavolt Supply API',
     revision: process.env.RAILWAY_GIT_COMMIT_SHA || null,
-    features: ['expenditures'],
+    features: ['expenditures', 'deposits'],
 }));
 
 // Routes
@@ -61,6 +61,7 @@ app.use('/api/sales',      salesRouter);
 app.use('/api/customers',  customersRouter);
 app.use('/api/users',      usersRouter);
 app.use('/api/shops',      shopsRouter);
+app.use('/api/deposits', require('./routes/deposits'));
 app.use('/api/expenditures', require('./routes/expenditures'));
 app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/settings',   settingsRouter);

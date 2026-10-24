@@ -1,0 +1,113 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deposits ? Reliavolt Supply</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+<a href="deposits.html" class="nav-item nav-deposits active"><span class="nav-icon">&#127974;</span><span class="nav-label">Deposits</span></a>
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="customers.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Customers</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Deposits</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <div>
+                        <div id="currentUser">Admin</div>
+                        <div class="user-role-text" id="userRole">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+<main class="page-content">
+ <div class="card" style="padding:1.5rem;margin-bottom:1.5rem"><h2>Record bank deposit</h2>
+ <p>Deposit date defaults to today. Choose an earlier date when entering a previous deposit. Submission time is recorded automatically.</p>
+ <form id="depositForm">
+ <div class="form-row"><div class="form-group"><label for="depositDate">Deposit date *</label><input class="form-control" type="date" id="depositDate" required></div>
+ <div class="form-group"><label for="depositShop">Shop *</label><select class="form-control" id="depositShop" required></select></div></div>
+ <div class="form-row"><div class="form-group"><label for="receiptNumber">Bank receipt number *</label><input class="form-control" id="receiptNumber" maxlength="100" required></div>
+ <div class="form-group"><label for="depositAmount">Amount deposited *</label><input class="form-control" type="number" id="depositAmount" min="0.01" max="999999999999.99" step="0.01" required></div></div>
+ <div class="form-group"><label for="bankReceipt">Bank receipt *</label><input class="form-control" type="file" id="bankReceipt" accept="application/pdf,image/jpeg,image/png" required><small>PDF, JPG or PNG, maximum 5 MB.</small></div>
+ <button class="btn btn-primary" id="saveDeposit" type="submit" disabled>Record deposit</button></form><p id="depositMessage" role="status" aria-live="polite"></p></div>
+ <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Deposit records</h2><button class="btn btn-secondary" id="refreshDeposits" type="button">Refresh</button></div>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Deposit date</th><th>Receipt number</th><th>Amount</th><th>Shop</th><th>Recorded by</th><th>Submitted at</th><th>Bank receipt</th></tr></thead><tbody id="depositRows"><tr><td colspan="7">Loading deposits...</td></tr></tbody></table></div></div>
+ </main>
+    </div>
+</div>
+
+<script src="api.js"></script>
+<script src="app.js"></script>
+<script src="deposits.js"></script>
+</body>
+</html>
