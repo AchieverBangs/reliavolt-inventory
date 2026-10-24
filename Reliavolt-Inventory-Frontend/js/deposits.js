@@ -5,7 +5,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         el('depositMessage').textContent = value;
         el('depositRecordsMessage').textContent = value;
     };
-    let busy = false, ready = false, shops = [], records = [];
+    let busy = false, ready = false, shops = [], records = [], editingId = null;
+    const resetEditor = () => {
+        editingId = null;
+        el('depositFormTitle').textContent = 'Record bank deposit';
+        el('saveDeposit').textContent = 'Record deposit';
+        el('cancelDepositEdit').hidden = true;
+        el('bankReceipt').required = true;
+        el('existingReceipt').textContent = '';
+        el('depositAmount').value = ''; el('receiptNumber').value = ''; el('bankReceipt').value = '';
+        el('depositDate').value = new Date().toISOString().slice(0, 10);
+    };
     const loadResource = async path => {
         let timer;
         try {
@@ -21,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         el('saveDeposit').disabled = busy || !ready || !shops.length;
         el('refreshDeposits').disabled = busy;
         el('filterShop').disabled = !shops.length;
+        el('cancelDepositEdit').disabled = busy;
     };
     const render = () => {
         const selectedShop = el('filterShop').value;
@@ -39,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         el('depositRows').innerHTML = shown.length ? shown.map(row => '<tr><td>' + esc(row.deposit_date) +
             '</td><td>' + esc(row.receipt_number) + '</td><td>' + esc(formatCurrency(row.amount)) +
             '</td><td>' + esc(row.shop_name) + '</td><td>' + esc(row.recorded_by) + '</td><td>' +
-            esc(new Date(row.created_at).toLocaleString()) + '</td><td><button class="btn btn-secondary" type="button" data-receipt="' + Number(row.id) + '">Download receipt</button></td></tr>').join('') : '<tr><td colspan="7">No deposits recorded.</td></tr>';
+            esc(new Date(row.created_at).toLocaleString()) + '</td><td><button class="btn btn-secondary" type="button" data-receipt="' + Number(row.id) + '">Download receipt</button> <button class="btn btn-secondary" type="button" data-edit="' + Number(row.id) + '">Edit</button></td></tr>').join('') : '<tr><td colspan="7">No deposits recorded.</td></tr>';
     };
     const load = async () => {
         if (busy) return;
@@ -78,12 +89,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const today = () => new Date().toISOString().slice(0, 10);
     el('depositDate').value = today(); el('depositDate').max = today();
     el('refreshDeposits').addEventListener('click', load);
+    el('cancelDepositEdit').addEventListener('click', () => { if (!busy) { resetEditor(); message(''); } });
     el('filterShop').addEventListener('change', () => { if (ready) render(); });
     el('depositForm').addEventListener('submit', async event => {
         event.preventDefault();
         if (busy || !ready || !el('depositForm').reportValidity()) return;
         const file = el('bankReceipt').files[0];
-        if (!file || file.size > 5 * 1024 * 1024) { message('Select a bank receipt no larger than 5 MB.'); return; }
+        if ((!file && !editingId) || (file && file.size > 5 * 1024 * 1024)) { message('Select a bank receipt no larger than 5 MB.'); return; }
         busy = true; controls(); message('');
         try {
             const body = new FormData();
@@ -91,18 +103,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             body.append('receipt_number', el('receiptNumber').value.trim());
             body.append('deposit_date', el('depositDate').value);
             body.append('shop_id', el('depositShop').value);
-            body.append('receipt', file);
-            const result = await apiFetch('/api/deposits', { method: 'POST', body });
+            if (file) body.append('receipt', file);
+            const previous = records.find(row => row.id === editingId);
+            const result = await apiFetch('/api/deposits' + (editingId ? '/' + editingId : ''), { method: editingId ? 'PUT' : 'POST', body });
             if (!result) return;
-            records.unshift({ ...result, shop_name: shops.find(shop => Number(shop.id) === Number(result.shop_id))?.name, recorded_by: getCurrentUserName() });
+            const wasEditing = !!editingId;
+            records = records.filter(row => Number(row.id) !== Number(result.id));
+            records.unshift({ ...result, shop_name: shops.find(shop => Number(shop.id) === Number(result.shop_id))?.name, recorded_by: previous?.recorded_by || getCurrentUserName() });
             records.sort((a,b) => b.deposit_date.localeCompare(a.deposit_date) || b.id-a.id);
             el('depositAmount').value = ''; el('receiptNumber').value = ''; el('bankReceipt').value = '';
             el('depositDate').value = today(); el('depositDate').max = today();
-            render(); message('Deposit and bank receipt recorded.');
+            resetEditor();
+            render(); message(wasEditing ? 'Deposit updated. Shop totals have been recalculated.' : 'Deposit and bank receipt recorded.');
         } catch (err) { message(err.message); }
         finally { busy = false; controls(); }
     });
     el('depositRows').addEventListener('click', async event => {
+        const editButton = event.target.closest('[data-edit]');
+        if (editButton) {
+            if (busy) return;
+            const row = records.find(item => Number(item.id) === Number(editButton.dataset.edit));
+            if (!row) return;
+            editingId = row.id;
+            el('depositFormTitle').textContent = 'Edit bank deposit';
+            el('saveDeposit').textContent = 'Save changes';
+            el('cancelDepositEdit').hidden = false;
+            el('receiptNumber').value = row.receipt_number;
+            el('depositAmount').value = row.amount;
+            el('depositDate').value = row.deposit_date;
+            el('depositShop').value = row.shop_id;
+            el('bankReceipt').value = ''; el('bankReceipt').required = false;
+            el('existingReceipt').textContent = 'Current receipt: ' + (row.receipt_name || 'Bank receipt') + '. Leave the upload empty to keep it.';
+            message('Editing deposit ' + row.receipt_number + '.');
+            el('depositForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el('receiptNumber').focus();
+            return;
+        }
         const button = event.target.closest('[data-receipt]');
         if (!button) return;
         button.disabled = true;

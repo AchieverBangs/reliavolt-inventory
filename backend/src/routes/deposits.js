@@ -27,10 +27,12 @@ router.get('/:id/receipt', async (req, res, next) => {
         res.send(rows[0].receipt_data);
     } catch (err) { next(err); }
 });
-router.post('/', (req, res, next) => upload(req, res, err => {
+const saveDeposit = [(req, res, next) => upload(req, res, err => {
     if (err) return res.status(400).json({ error: 'Upload one PDF, JPG or PNG receipt, maximum 5 MB.' });
     next();
 }), async (req, res, next) => {
+    const editing = req.method === 'PUT';
+    if (editing && !/^\d+$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid deposit.' });
     const { amount, receipt_number, deposit_date = new Date().toISOString().slice(0, 10) } = req.body;
     const file = req.file;
     const validFile = file && file.size > 0 && (
@@ -41,12 +43,27 @@ router.post('/', (req, res, next) => upload(req, res, err => {
         || typeof receipt_number !== 'string' || !receipt_number.trim() || receipt_number.trim().length > 100
         || typeof deposit_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(deposit_date)
         || !Number.isFinite(Date.parse(deposit_date)) || new Date(deposit_date).toISOString().slice(0,10) !== deposit_date
-        || deposit_date > new Date().toISOString().slice(0,10) || !validFile) {
+        || deposit_date > new Date().toISOString().slice(0,10) || (file ? !validFile : !editing)) {
         return res.status(400).json({ error: 'Enter a positive amount (up to two decimals), receipt number, today or an earlier deposit date, and a PDF, JPG or PNG bank receipt (maximum 5 MB).' });
     }
     const shopId = req.user.role === 'Admin' ? req.body.shop_id : req.user.shopId;
     if (!Number.isSafeInteger(Number(shopId)) || Number(shopId) <= 0) return res.status(400).json({ error: 'A shop must be assigned.' });
     try {
+        if (editing) {
+            const values = [amount, receipt_number.trim(), deposit_date, shopId];
+            let receiptUpdate = '';
+            if (file) {
+                values.push(file.originalname.slice(0,255), file.mimetype, file.buffer);
+                receiptUpdate = ', receipt_name=$5, receipt_type=$6, receipt_data=$7';
+            }
+            values.push(req.params.id);
+            let condition = 'id=$' + values.length;
+            if (req.user.role !== 'Admin') { values.push(req.user.shopId); condition += ' AND shop_id=$' + values.length; }
+            const { rows } = await pool.query('UPDATE deposits SET amount=$1, receipt_number=$2, deposit_date=$3, shop_id=$4' + receiptUpdate +
+                ' WHERE ' + condition + ' RETURNING id, amount, receipt_number, deposit_date::text AS deposit_date, shop_id, created_at, receipt_name', values);
+            if (!rows.length) return res.status(404).json({ error: 'Deposit not found or outside your assigned shop.' });
+            return res.json(rows[0]);
+        }
         const { rows } = await pool.query(`INSERT INTO deposits (amount, receipt_number, deposit_date, shop_id, created_by, receipt_name, receipt_type, receipt_data)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, amount, receipt_number, deposit_date::text AS deposit_date, shop_id, created_at, receipt_name`,
             [amount, receipt_number.trim(), deposit_date, shopId, req.user.id, file.originalname.slice(0,255), file.mimetype, file.buffer]);
@@ -56,5 +73,7 @@ router.post('/', (req, res, next) => upload(req, res, err => {
         if (err.code === '23503') return res.status(400).json({ error: 'Selected shop does not exist.' });
         next(err);
     }
-});
+}];
+router.post('/', ...saveDeposit);
+router.put('/:id', ...saveDeposit);
 module.exports = router;

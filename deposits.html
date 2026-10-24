@@ -92,15 +92,15 @@
         </header>
 
 <main class="page-content">
- <div class="card" style="padding:1.5rem;margin-bottom:1.5rem"><h2>Record bank deposit</h2>
+ <div class="card" style="padding:1.5rem;margin-bottom:1.5rem"><h2 id="depositFormTitle">Record bank deposit</h2>
  <p>Deposit date defaults to today. Choose an earlier date when entering a previous deposit. Submission time is recorded automatically.</p>
  <form id="depositForm">
  <div class="form-row"><div class="form-group"><label for="depositDate">Deposit date *</label><input class="form-control" type="date" id="depositDate" required></div>
  <div class="form-group"><label for="depositShop">Shop *</label><select class="form-control" id="depositShop" required></select></div></div>
  <div class="form-row"><div class="form-group"><label for="receiptNumber">Bank receipt number *</label><input class="form-control" id="receiptNumber" maxlength="100" required></div>
  <div class="form-group"><label for="depositAmount">Amount deposited *</label><input class="form-control" type="number" id="depositAmount" min="0.01" max="999999999999.99" step="0.01" required></div></div>
- <div class="form-group"><label for="bankReceipt">Bank receipt *</label><input class="form-control" type="file" id="bankReceipt" accept="application/pdf,image/jpeg,image/png" required><small>PDF, JPG or PNG, maximum 5 MB.</small></div>
- <button class="btn btn-primary" id="saveDeposit" type="submit" disabled>Record deposit</button></form><p id="depositMessage" role="status" aria-live="polite"></p></div>
+ <div class="form-group"><label for="bankReceipt">Bank receipt *</label><input class="form-control" type="file" id="bankReceipt" accept="application/pdf,image/jpeg,image/png" required><small>PDF, JPG or PNG, maximum 5 MB.</small><p id="existingReceipt"></p></div>
+ <button class="btn btn-primary" id="saveDeposit" type="submit" disabled>Record deposit</button> <button class="btn btn-secondary" id="cancelDepositEdit" type="button" hidden>Cancel edit</button></form><p id="depositMessage" role="status" aria-live="polite"></p></div>
  <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Deposit records</h2><button class="btn btn-secondary" id="refreshDeposits" type="button">Refresh</button></div>
  <p id="depositRecordsMessage" role="status" aria-live="polite"></p>
  <div class="form-group"><label for="filterShop">Filter by shop</label><select class="form-control" id="filterShop"><option value="">All shops</option></select></div>
@@ -112,8 +112,8 @@
     </div>
 </div>
 
-<script src="api.js?v=deposits-shop-totals-3"></script>
-<script src="app.js?v=deposits-shop-totals-3"></script>
-<script src="deposits.js?v=deposits-shop-totals-3"></script>
+<script src="api.js?v=deposits-edit-1"></script>
+<script src="app.js?v=deposits-edit-1"></script>
+<script src="deposits.js?v=deposits-edit-1"></script>
 </body>
 </html>

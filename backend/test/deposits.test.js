@@ -60,3 +60,28 @@ test('duplicate receipts return conflict and write-disabled managers cannot save
         assert.equal((await save({},'Manager')).status,403);
     } finally {pool.query=original;}
 });
+
+test('editing preserves receipt and submission details and enforces shop scope', async()=>{
+ const original=pool.query;const calls=[];
+ pool.query=async(sql,values)=>{calls.push({sql,values});return {rows:sql.startsWith('SELECT can_write')?[{can_write:true}]:[{id:9,amount:'25.00'}]};};
+ try {
+  const response=await request(app).put('/api/deposits/9').auth(token('Manager'),{type:'bearer'}).field('amount','25.00').field('receipt_number','CORRECTED').field('deposit_date','2026-01-01').field('shop_id','999');
+  assert.equal(response.status,200);const update=calls.at(-1);
+  assert.deepEqual(update.values,['25.00','CORRECTED','2026-01-01',7,'9',7]);
+  assert.match(update.sql,/WHERE id=\$5 AND shop_id=\$6/);
+  assert.doesNotMatch(update.sql,/SET[^]*receipt_data=/);
+  assert.doesNotMatch(update.sql,/created_at=|created_by=/);
+ }finally{pool.query=original;}
+});
+test('edit accepts replacement receipt and rejects unauthorized or missing deposits',async()=>{
+ const original=pool.query;let calls=[];
+ pool.query=async(sql,values)=>{calls.push({sql,values});return {rows:[{id:9}]};};
+ try{
+  const response=await request(app).put('/api/deposits/9').auth(token(),{type:'bearer'}).field('amount','25').field('receipt_number','NEW').field('deposit_date','2026-01-01').field('shop_id','3').attach('receipt',Buffer.from('%PDF-replaced'),{filename:'new.pdf',contentType:'application/pdf'});
+  assert.equal(response.status,200);assert.match(calls.at(-1).sql,/receipt_data=\$7/);assert.deepEqual(calls.at(-1).values[6],Buffer.from('%PDF-replaced'));
+  pool.query=async()=>({rows:[]});
+  assert.equal((await request(app).put('/api/deposits/9').auth(token(),{type:'bearer'}).field('amount','25').field('receipt_number','NEW').field('deposit_date','2026-01-01').field('shop_id','3')).status,404);
+  pool.query=async()=>({rows:[{can_write:false}]});
+  assert.equal((await request(app).put('/api/deposits/9').auth(token('Manager'),{type:'bearer'})).status,403);
+ }finally{pool.query=original;}
+});

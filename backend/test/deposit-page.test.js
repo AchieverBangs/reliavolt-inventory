@@ -50,7 +50,7 @@ test('both frontend copies load versioned deposit scripts to avoid stale browser
     assert.equal(source,fs.readFileSync(path.join(root,'Reliavolt-Inventory-Frontend/js/deposits.js'),'utf8'));
     for(const base of ['', 'Reliavolt-Inventory-Frontend/']){
         const html=fs.readFileSync(path.join(root,base,'deposits.html'),'utf8');
-        assert.match(html,/src="(?:js\/)?deposits\.js\?v=deposits-shop-totals-3"/);
+        assert.match(html,/src="(?:js\/)?deposits\.js\?v=deposits-edit-1"/);
         assert.match(html,/id="depositRecordsMessage"/);
     }
 });
