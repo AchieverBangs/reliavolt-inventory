@@ -1,11 +1,15 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const el = id => document.getElementById(id);
     const esc = value => { const node = document.createElement('span'); node.textContent = String(value ?? ''); return node.innerHTML; };
-    const message = value => { el('depositMessage').textContent = value; };
+    const message = value => {
+        el('depositMessage').textContent = value;
+        el('depositRecordsMessage').textContent = value;
+    };
     let busy = false, ready = false, shops = [], records = [];
     const controls = () => {
         el('saveDeposit').disabled = busy || !ready || !shops.length;
         el('refreshDeposits').disabled = busy;
+        el('filterShop').disabled = !shops.length;
     };
     const render = () => {
         const selectedShop = el('filterShop').value;
@@ -30,9 +34,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (busy) return;
         busy = true; controls(); message('');
         try {
-            const [allShops, rows] = await Promise.all([api.get('/api/shops'), api.get('/api/deposits')]);
-            if (!allShops || !rows) return;
-            if (!Array.isArray(allShops) || !Array.isArray(rows)) throw new Error('Unexpected server response.');
+            // Populate the shop selector even when loading deposits fails.
+            const [shopResult, depositResult] = await Promise.allSettled([api.get('/api/shops'), api.get('/api/deposits')]);
+            if (shopResult.status === 'rejected') throw shopResult.reason;
+            const allShops = shopResult.value;
+            if (!allShops) return;
+            if (!Array.isArray(allShops)) throw new Error('Unexpected shop response.');
             shops = isAdmin() ? allShops : allShops.filter(shop => Number(shop.id) === Number(getCurrentUserShopId()));
             const selected = el('depositShop').value;
             el('depositShop').innerHTML = '<option value="">Select shop</option>' + shops.map(shop => '<option value="' + Number(shop.id) + '">' + esc(shop.name) + '</option>').join('');
@@ -41,9 +48,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const filter = el('filterShop').value;
             el('filterShop').innerHTML = '<option value="">All shops</option>' + shops.map(shop => '<option value="' + Number(shop.id) + '">' + esc(shop.name) + '</option>').join('');
             el('filterShop').value = shops.some(shop => String(shop.id) === filter) ? filter : '';
+            if (depositResult.status === 'rejected') throw depositResult.reason;
+            const rows = depositResult.value;
+            if (!rows) return;
+            if (!Array.isArray(rows)) throw new Error('Unexpected deposit response.');
             records = rows; ready = true; render();
             if (!shops.length) message('A shop must be assigned before recording deposits.');
-        } catch (err) { message(err.message); }
+        } catch (err) {
+            message('Could not refresh deposits: ' + err.message + ' Use Refresh to try again.' + (ready ? ' Previously loaded records are still shown.' : ''));
+            if (!ready) {
+                el('depositRows').innerHTML = '<tr><td colspan="7">Deposits could not be loaded. Use Refresh to retry.</td></tr>';
+                el('depositShopTotals').innerHTML = '<tr><td colspan="3">Totals unavailable until deposits load.</td></tr>';
+                el('depositTotal').textContent = 'Unavailable';
+            }
+        }
         finally { busy = false; controls(); }
     };
     const today = () => new Date().toISOString().slice(0, 10);

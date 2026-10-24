@@ -107,6 +107,7 @@
  <div class="form-group"><label for="bankReceipt">Bank receipt *</label><input class="form-control" type="file" id="bankReceipt" accept="application/pdf,image/jpeg,image/png" required><small>PDF, JPG or PNG, maximum 5 MB.</small></div>
  <button class="btn btn-primary" id="saveDeposit" type="submit" disabled>Record deposit</button></form><p id="depositMessage" role="status" aria-live="polite"></p></div>
  <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Deposit records</h2><button class="btn btn-secondary" id="refreshDeposits" type="button">Refresh</button></div>
+ <p id="depositRecordsMessage" role="status" aria-live="polite"></p>
  <div class="form-group"><label for="filterShop">Filter by shop</label><select class="form-control" id="filterShop"><option value="">All shops</option></select></div>
  <section aria-labelledby="depositTotalsHeading"><h3 id="depositTotalsHeading">Total deposits by shop</h3>
  <p>Total deposits: <strong id="depositTotal">&mdash;</strong></p>
@@ -116,9 +117,9 @@
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/app.js"></script>
+<script src="js/api.js?v=deposits-shop-totals-2"></script>
+<script src="js/app.js?v=deposits-shop-totals-2"></script>
 <script src="js/ai-chat.js"></script>
-<script src="js/deposits.js"></script>
+<script src="js/deposits.js?v=deposits-shop-totals-2"></script>
 </body>
 </html>
