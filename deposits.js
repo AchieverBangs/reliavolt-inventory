@@ -6,6 +6,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         el('depositRecordsMessage').textContent = value;
     };
     let busy = false, ready = false, shops = [], records = [];
+    const loadResource = async path => {
+        let timer;
+        try {
+            return await Promise.race([
+                api.get(path),
+                new Promise((resolve, reject) => {
+                    timer = setTimeout(() => reject(new Error('The server took too long to load ' + (path === '/api/shops' ? 'shops' : 'deposits') + '. Check your connection and try again.')), 20000);
+                })
+            ]);
+        } finally { clearTimeout(timer); }
+    };
     const controls = () => {
         el('saveDeposit').disabled = busy || !ready || !shops.length;
         el('refreshDeposits').disabled = busy;
@@ -35,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         busy = true; controls(); message('');
         try {
             // Populate the shop selector even when loading deposits fails.
-            const [shopResult, depositResult] = await Promise.allSettled([api.get('/api/shops'), api.get('/api/deposits')]);
+            const [shopResult, depositResult] = await Promise.allSettled([loadResource('/api/shops'), loadResource('/api/deposits')]);
             if (shopResult.status === 'rejected') throw shopResult.reason;
             const allShops = shopResult.value;
             if (!allShops) return;
@@ -106,6 +117,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (err) { message(err.message); }
         finally { button.disabled = false; }
     });
-    if (!['Admin', 'Manager'].includes(getCurrentUserRole())) { message('Deposits are available to managers and administrators.'); return; }
+    if (!['Admin', 'Manager'].includes(getCurrentUserRole())) {
+        message('Deposits are available to managers and administrators.');
+        el('depositRows').innerHTML = '<tr><td colspan="7">Sign in as a manager or administrator to view deposits.</td></tr>';
+        el('depositShopTotals').innerHTML = '<tr><td colspan="3">Deposit totals require manager or administrator access.</td></tr>';
+        return;
+    }
     await load();
 });
