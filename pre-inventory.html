@@ -110,14 +110,20 @@
  <button class="btn btn-primary" id="preSave" type="submit" disabled>Save pre-inventory</button> <button class="btn btn-secondary" id="preCancel" type="button" hidden>Cancel edit</button></form></div>
  <div class="card" style="padding:1.5rem"><div class="page-toolbar"><h2>Pre-inventory</h2><button class="btn btn-secondary" id="preRefresh" type="button">Refresh</button></div><p id="preMessage" role="status" aria-live="polite"></p>
  <div class="form-row"><div class="form-group"><label for="preFilterShop">Shop</label><select class="form-control" id="preFilterShop"><option value="">All shops</option></select></div><div class="form-group"><label for="preStatus">Status</label><select class="form-control" id="preStatus"><option value="pending">Awaiting arrival</option><option value="received">Transferred</option><option value="">All</option></select></div></div>
+ <section id="preSummary" aria-label="Pre-inventory financial totals"><div class="form-row">
+ <div class="form-group"><h3>Cost total</h3><p id="preTotalCost">?</p></div>
+ <div class="form-group"><h3>Expected selling total</h3><p id="preTotalSelling">?</p></div>
+ <div class="form-group"><h3>Commission total</h3><p id="preTotalCommission">?</p></div>
+ <div class="form-group"><h3>Expected profit</h3><p id="preTotalProfit">?</p></div>
+ </div><p id="preTotalsScope" aria-live="polite">Totals will appear after pre-inventory loads.</p></section>
  <p>Each transfer creates a product entry in each allocated shop, with the prices entered above.</p>
- <div class="table-responsive"><table class="data-table"><thead><tr><th>Product / reference</th><th>Quantity</th><th>Purchase cost / unit</th><th>Selling price / unit</th><th>Commission / unit</th><th>Shop allocations</th><th>Status</th><th>Actions</th></tr></thead><tbody id="preRows"><tr><td colspan="8">Loading pre-inventory...</td></tr></tbody></table></div></div>
+ <div class="table-responsive"><table class="data-table"><thead><tr><th>Product / reference</th><th>Quantity</th><th>Purchase cost / unit</th><th>Selling price / unit</th><th>Commission / unit</th><th>Cost total</th><th>Expected selling total</th><th>Profit / unit after commission</th><th>Expected profit after commission</th><th>Shop allocations</th><th>Status</th><th>Actions</th></tr></thead><tbody id="preRows"><tr><td colspan="12">Loading pre-inventory...</td></tr></tbody></table></div></div>
  </main>
     </div>
 </div>
 
 <script src="api.js?v=deposits-edit-1"></script>
 <script src="app.js?v=deposits-edit-1"></script>
-<script src="pre-inventory.js?v=3"></script>
+<script src="pre-inventory.js?v=4"></script>
 </body>
 </html>

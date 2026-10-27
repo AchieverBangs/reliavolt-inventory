@@ -21,7 +21,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const render=()=>{
         const shop=el('preFilterShop').value,status=el('preStatus').value;
         const shown=records.filter(row=>(!shop||row.allocations.some(a=>String(a.shop_id)===shop))&&(!status||(status==='received')===!!row.received_at));
-        el('preRows').innerHTML=shown.length?shown.map(row=>'<tr><td>'+esc(row.name)+'<br>'+esc(row.reference||'')+'</td><td>'+row.quantity+'</td><td>'+esc(formatCurrency(row.cost_price))+'</td><td>'+esc(formatCurrency(row.selling_price))+'</td><td>'+esc(formatCurrency(row.commission||0))+'</td><td>'+row.allocations.map(a=>esc(a.shop_name)+': '+a.quantity+' - '+esc(users.find(user=>Number(user.id)===Number(a.commission_user_id))?.name||'Person who makes the sale')).join('<br>')+'</td><td>'+ (row.received_at?'Transferred '+esc(new Date(row.received_at).toLocaleDateString()):'Awaiting arrival')+'</td><td>'+(row.received_at?'<a href="inventory.html">View inventory</a>':'<button type="button" class="btn btn-secondary" data-edit="'+row.id+'">Edit</button> <button type="button" class="btn btn-primary" data-receive="'+row.id+'">Arrived — transfer to inventory</button>')+'</td></tr>').join(''):'<tr><td colspan="8">No goods match these filters.</td></tr>';
+        const values=shown.map(row=>{
+            const quantity=shop?row.allocations.filter(a=>String(a.shop_id)===shop).reduce((sum,a)=>sum+Number(a.quantity),0):Number(row.quantity);
+            const cost=Math.round(Number(row.cost_price)*100),selling=Math.round(Number(row.selling_price)*100),commission=Math.round(Number(row.commission||0)*100);
+            return {quantity,cost:cost*quantity/100,selling:selling*quantity/100,commission:commission*quantity/100,profit:(selling-cost-commission)*quantity/100,unitProfit:(selling-cost-commission)/100};
+        });
+        const totals=values.reduce((sum,value)=>{for(const key of ['quantity','cost','selling','commission','profit'])sum[key]+=value[key];return sum;},{quantity:0,cost:0,selling:0,commission:0,profit:0});
+        for(const [id,key] of [['preTotalCost','cost'],['preTotalSelling','selling'],['preTotalCommission','commission'],['preTotalProfit','profit']])el(id).textContent=formatCurrency(totals[key]);
+        el('preTotalsScope').textContent=shown.length+' product entries, '+totals.quantity+' units matching the selected shop and status. Expected profit = selling total - cost total - commission total.';
+        el('preRows').innerHTML=shown.length?shown.map((row,index)=>'<tr><td>'+esc(row.name)+'<br>'+esc(row.reference||'')+'</td><td>'+values[index].quantity+'</td><td>'+esc(formatCurrency(row.cost_price))+'</td><td>'+esc(formatCurrency(row.selling_price))+'</td><td>'+esc(formatCurrency(row.commission||0))+'</td><td>'+esc(formatCurrency(values[index].cost))+'</td><td>'+esc(formatCurrency(values[index].selling))+'</td><td>'+esc(formatCurrency(values[index].unitProfit))+'</td><td>'+esc(formatCurrency(values[index].profit))+'</td><td>'+row.allocations.map(a=>esc(a.shop_name)+': '+a.quantity+' - '+esc(users.find(user=>Number(user.id)===Number(a.commission_user_id))?.name||'Person who makes the sale')).join('<br>')+'</td><td>'+ (row.received_at?'Transferred '+esc(new Date(row.received_at).toLocaleDateString()):'Awaiting arrival')+'</td><td>'+(row.received_at?'<a href="inventory.html">View inventory</a>':'<button type="button" class="btn btn-secondary" data-edit="'+row.id+'">Edit</button> <button type="button" class="btn btn-primary" data-receive="'+row.id+'">Arrived — transfer to inventory</button>')+'</td></tr>').join(''):'<tr><td colspan="12">No goods match these filters.</td></tr>';
     };
     const load=async()=>{
         if(busy)return;busy=true;controls();message('');
@@ -38,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             el('preFilterShop').value=shops.some(shop=>String(shop.id)===selected)?selected:'';
             ready=true;render();allocationTotal();
             if(!shops.length)message('Create a shop before allocating goods.');
-        }catch(err){message('Could not load pre-inventory: '+err.message);if(!ready)el('preRows').innerHTML='<tr><td colspan="8">Unable to load goods. Use Refresh to retry.</td></tr>';}
+        }catch(err){message('Could not load pre-inventory: '+err.message);if(!ready)el('preRows').innerHTML='<tr><td colspan="12">Unable to load goods. Use Refresh to retry.</td></tr>';}
         finally{busy=false;controls();}
     };
     el('preQuantity').addEventListener('input',allocationTotal);
@@ -73,6 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         catch(err){message(err.message);}finally{busy=false;controls();receive.disabled=false;}
         if(transferred){await load();message('Goods transferred to the allocated shops. Open Inventory to view the stock.');}
     });
-    if(!isAdmin()){el('preEditor').hidden=true;el('preRefresh').disabled=true;el('preFilterShop').disabled=true;el('preStatus').disabled=true;message('Pre-inventory and commission allocation are available only to administrators.');el('preRows').innerHTML='<tr><td colspan="8">Administrator access required.</td></tr>';return;}
+    if(!isAdmin()){el('preSummary').hidden=true;el('preEditor').hidden=true;el('preRefresh').disabled=true;el('preFilterShop').disabled=true;el('preStatus').disabled=true;message('Pre-inventory and commission allocation are available only to administrators.');el('preRows').innerHTML='<tr><td colspan="12">Administrator access required.</td></tr>';return;}
     await load();
 });

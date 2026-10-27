@@ -43,3 +43,18 @@ test('frontend copies match and dashboard shortcut follows View Reports',()=>{
   assert.match(html,/<span>View Reports<\/span>\s*<\/a>\s*<a href="pre-inventory.html"/);
  }
 });
+
+test('financial totals use quantities, commissions, shop allocations and empty filters',async()=>{
+ const p=await page();
+ assert.equal(p.el('preTotalCost').textContent,'Le 1000');
+ assert.equal(p.el('preTotalSelling').textContent,'Le 1500');
+ assert.equal(p.el('preTotalCommission').textContent,'Le 52.5');
+ assert.equal(p.el('preTotalProfit').textContent,'Le 447.5');
+ assert.match(p.el('preRows').innerHTML,/Le 44.75/);
+ p.el('preFilterShop').value='3';p.el('preFilterShop').listeners.change();
+ assert.equal(p.el('preTotalCost').textContent,'Le 400');
+ assert.equal(p.el('preTotalSelling').textContent,'Le 600');
+ assert.equal(p.el('preTotalProfit').textContent,'Le 179');
+ p.el('preFilterShop').value='9';p.el('preFilterShop').listeners.change();
+ assert.equal(p.el('preTotalProfit').textContent,'Le 0');
+});
