@@ -3,6 +3,7 @@ let _products   = [];
 let _sales      = [];
 let _deliveries = [];
 let _shops      = [];
+let _stockSummary = null;
 
 // ===== STATS =====
 function renderDashboardStats() {
@@ -30,24 +31,22 @@ function renderDashboardStats() {
     setEl('statCostValue',    formatCurrency(costValue));
     setEl('statSellingValue', formatCurrency(sellingValue));
 
-    // "Ever stored" = what's on the shelf now plus everything already sold from it, so a
-    // sale doesn't lower it (it just moves units from one side to the other) and deleting
-    // a sale doesn't either. Valued at each product's current price — past prices aren't kept.
-    const soldByProduct = {};
-    _sales.forEach(s => { if (s.product_id) soldByProduct[s.product_id] = (soldByProduct[s.product_id] || 0) + Number(s.qty); });
+    // Count stock receipts independently of sales payment status or stock deductions.
+    // The ledger records initial stock and restocks; valuation uses current prices.
+    const addedByProduct = new Map((_stockSummary || []).map(row => [Number(row.id), Number(row.total_added)]));
     let everUnits = 0, everCost = 0, everSelling = 0;
     _products.forEach(p => {
-        const units = Number(p.quantity) + (soldByProduct[p.id] || 0);
-        everUnits   += units;
-        everCost    += units * (Number(p.cost_price) || 0);
+        const units = addedByProduct.get(Number(p.id)) || 0;
+        everUnits += units;
+        everCost += units * (Number(p.cost_price) || 0);
         everSelling += units * Number(p.selling_price);
     });
-    const everSub = `${everUnits.toLocaleString()} units stocked in total`;
-    setEl('statEverCostValueLabel',    'All Stock Ever Stored (Cost)'    + scopeSuffix);
-    setEl('statEverSellingValueLabel', 'All Stock Ever Stored (Selling)' + scopeSuffix);
-    setEl('statEverCostValue',    formatCurrency(everCost));
-    setEl('statEverSellingValue', formatCurrency(everSelling));
-    setEl('statEverCostSub',    everSub);
+    const everSub = _stockSummary === null ? 'Stock history unavailable. Refresh to retry.' : everUnits.toLocaleString() + ' units received in total, valued at current prices';
+    setEl('statEverCostValueLabel', 'All Stock Ever Stored (Cost)' + (isAdmin() ? ' (All Shops)' : ' (Your Shop)'));
+    setEl('statEverSellingValueLabel', 'All Stock Ever Stored (Selling)' + (isAdmin() ? ' (All Shops)' : ' (Your Shop)'));
+    setEl('statEverCostValue', _stockSummary === null ? 'Unavailable' : formatCurrency(everCost));
+    setEl('statEverSellingValue', _stockSummary === null ? 'Unavailable' : formatCurrency(everSelling));
+    setEl('statEverCostSub', everSub);
     setEl('statEverSellingSub', everSub);
 
     setEl('statSalesToday',    formatCurrency(totalSalesToday));
@@ -742,11 +741,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDriverDashboard();
     } else {
         try {
-            [_products, _sales, _shops, _deliveries] = await Promise.all([
+            [_products, _sales, _shops, _deliveries, _stockSummary] = await Promise.all([
                 api.get('/api/products'),
                 api.get('/api/sales'),
                 api.get('/api/shops'),
                 api.get('/api/deliveries').catch(() => []),
+                api.get('/api/products/stock-summary').catch(() => null),
             ]);
         } catch (err) {
             showToast('Failed to load dashboard: ' + err.message, 'error');

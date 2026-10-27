@@ -3,6 +3,7 @@ let _products   = [];
 let _sales      = [];
 let _deliveries = [];
 let _shops      = [];
+let _stockSummary = null;
 
 // ===== STATS =====
 function renderDashboardStats() {
@@ -20,6 +21,24 @@ function renderDashboardStats() {
     setEl('statTotalProductsLabel', isAdmin() ? 'Total Products (All Shops)' : 'Total Products (Your Shop)');
     setEl('statTotalProducts', _products.length);
     setEl('statProductsSub',   `${_products.filter(p => p.quantity > 0).length} in stock`);
+    // Count stock receipts independently of sales payment status or stock deductions.
+    // The ledger records initial stock and restocks; valuation uses current prices.
+    const addedByProduct = new Map((_stockSummary || []).map(row => [Number(row.id), Number(row.total_added)]));
+    let everUnits = 0, everCost = 0, everSelling = 0;
+    _products.forEach(p => {
+        const units = addedByProduct.get(Number(p.id)) || 0;
+        everUnits += units;
+        everCost += units * (Number(p.cost_price) || 0);
+        everSelling += units * Number(p.selling_price);
+    });
+    const everSub = _stockSummary === null ? 'Stock history unavailable. Refresh to retry.' : everUnits.toLocaleString() + ' units received in total, valued at current prices';
+    setEl('statEverCostValueLabel', 'All Stock Ever Stored (Cost)' + (isAdmin() ? ' (All Shops)' : ' (Your Shop)'));
+    setEl('statEverSellingValueLabel', 'All Stock Ever Stored (Selling)' + (isAdmin() ? ' (All Shops)' : ' (Your Shop)'));
+    setEl('statEverCostValue', _stockSummary === null ? 'Unavailable' : formatCurrency(everCost));
+    setEl('statEverSellingValue', _stockSummary === null ? 'Unavailable' : formatCurrency(everSelling));
+    setEl('statEverCostSub', everSub);
+    setEl('statEverSellingSub', everSub);
+
     setEl('statSalesToday',    formatCurrency(totalSalesToday));
     setEl('statSalesTodaySub', `${todaySales.length} transaction${todaySales.length !== 1 ? 's' : ''}`);
     setEl('statProfitToday',   formatCurrency(profitToday));
@@ -305,11 +324,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDriverDashboard();
     } else {
         try {
-            [_products, _sales, _shops, _deliveries] = await Promise.all([
+            [_products, _sales, _shops, _deliveries, _stockSummary] = await Promise.all([
                 api.get('/api/products'),
                 api.get('/api/sales'),
                 api.get('/api/shops'),
                 api.get('/api/deliveries').catch(() => []),
+                api.get('/api/products/stock-summary').catch(() => null),
             ]);
         } catch (err) {
             showToast('Failed to load dashboard: ' + err.message, 'error');
