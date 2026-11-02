@@ -40,7 +40,7 @@ test('root and deployed credit pages and scripts match with Dashboard first',()=
     assert.equal(source,fs.readFileSync(path.join(root,'Reliavolt-Inventory-Frontend/js/credit.js'),'utf8'));
     const html=fs.readFileSync(path.join(root,'credit.html'),'utf8');
     assert.equal(html,fs.readFileSync(path.join(root,'Reliavolt-Inventory-Frontend/credit.html'),'utf8'));
-    assert.match(html,/credit\.js\?v=20261102-edit-items/);
+    assert.match(html,/credit\.js\?v=20261102-returns/);
     const nav=html.slice(html.indexOf('<nav'),html.indexOf('</nav>'));
     assert.match(nav.match(/class="nav-label">([^<]+)/)[1],/^Dashboard$/);
 });

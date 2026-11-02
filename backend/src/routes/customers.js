@@ -102,7 +102,7 @@ router.get('/:id/credit-history', verifyToken, async (req, res) => {
 
         const { rows: sales } = await pool.query(
             `SELECT 'sale' AS type, id, receipt_no, COALESCE(invoice_no, receipt_no) AS invoice_no, product_name, qty,
-                    unit_price, total, credit_amount_paid, credit_amount AS amount, sale_date AS at
+                    unit_price, credit_amount - credit_amount_paid AS unpaid_amount, total, credit_amount_paid, credit_amount AS amount, sale_date AS at
              FROM sales WHERE customer_id = $1 AND (credit_amount > 0 OR payment_method = 'Credit')`,
             [req.params.id]
         );
@@ -187,6 +187,53 @@ router.put('/:id/credit-items/:saleId', verifyToken, requireRole('Admin'), async
         console.error(err);
         res.status(500).json({ error: 'Unable to update credit item' });
     } finally { client.release(); }
+});
+
+// Returns cancel unpaid goods; they are not repayments or cash refunds.
+router.post('/:id/credit-returns/:saleId', verifyToken, requireRole('Admin'), async (req, res) => {
+    const qty = req.body.qty;
+    if (!Number.isSafeInteger(qty) || qty <= 0) return res.status(400).json({ error: 'Return quantity must be a positive whole number' });
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+        // Same customer-first lock order as credit payments and reversals.
+        const { rows: customers } = await client.query('SELECT id, credit_balance FROM customers WHERE id=$1 FOR UPDATE', [req.params.id]);
+        const { rows: sales } = await client.query('SELECT * FROM sales WHERE id=$1 AND customer_id=$2 FOR UPDATE', [req.params.saleId, req.params.id]);
+        const sale = sales[0];
+        const reject = async (status, error) => { await client.query('ROLLBACK'); return res.status(status).json({ error }); };
+        if (!customers[0] || !sale) return await reject(404, 'Credit sale not found');
+        if (req.body.expected_qty !== undefined && req.body.expected_qty !== sale.qty)
+            return await reject(409, 'This sale changed. Refresh credit history before returning goods.');
+        if (sale.payment_method !== 'Credit' || qty > sale.qty || Number(sale.unit_price) <= 0)
+            return await reject(400, 'Return quantity exceeds the remaining credit-sale goods');
+        // NUMERIC arithmetic keeps money exact. Paid goods require a separate refund workflow.
+        const { rows: amounts } = await client.query(`SELECT unit_price * $1::integer AS amount,
+            unit_price * $1::integer <= credit_amount - credit_amount_paid AS unpaid
+            FROM sales WHERE id=$2`, [qty, sale.id]);
+        const amount = amounts[0].amount;
+        if (!amounts[0].unpaid || Number(amount) > Number(customers[0].credit_balance))
+            return await reject(400, 'Return exceeds the unpaid balance. Paid goods require a refund, not a credit return.');
+        const { rows: products } = await client.query('SELECT id FROM products WHERE id=$1 AND shop_id=$2 FOR UPDATE', [sale.product_id, sale.shop_id]);
+        if (!products[0]) return await reject(409, 'Original product is unavailable in the original shop');
+        const { rows: stock } = await client.query('UPDATE products SET quantity=quantity+$1 WHERE id=$2 RETURNING quantity', [qty, sale.product_id]);
+        await client.query(`UPDATE sales SET qty=qty-$1, total=unit_price*(qty-$1),
+            profit=(unit_price-unit_cost)*(qty-$1), commission=ROUND(commission*(qty-$1)/qty,2),
+            credit_amount=credit_amount-$2 WHERE id=$3`, [qty, amount, sale.id]);
+        await client.query('UPDATE customers SET credit_balance=credit_balance-$1 WHERE id=$2', [amount, req.params.id]);
+        const note = `Credit return — receipt ${sale.receipt_no}: ${qty} returned; credit reduced by ${amount}`;
+        await client.query(`INSERT INTO stock_movements (product_id,type,qty_change,balance_after,note,user_id,sale_id)
+            VALUES ($1,'adjustment',$2,$3,$4,$5,$6)`, [sale.product_id, qty, stock[0].quantity, note, req.user.id, sale.id]);
+        // Keep the audit record atomic with the stock and financial changes.
+        await client.query(`INSERT INTO activity_log (user_id,username,name,role,action,entity_type,entity_id,description)
+            VALUES ($1,$2,$3,$4,'update','sale',$5,$6)`, [req.user.id, req.user.username || null, req.user.name || null, req.user.role, sale.id, note]);
+        await client.query('COMMIT');
+        res.json({ message: 'Goods returned to original stock', qty, amount, remaining_qty: sale.qty - qty });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Unable to return credit goods' });
+    } finally { if (client) client.release(); }
 });
 
 // POST /api/customers/:id/credit-payments  { amount, note?, paid_date? }

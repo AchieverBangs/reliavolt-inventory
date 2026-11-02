@@ -188,7 +188,7 @@ const TOOLS_BASE = [
     },
     {
         name: 'get_credit_overview',
-        description: "Who owes us money: every customer with an outstanding credit balance (largest first), the total owed, and credit repayments received over an optional date range. Use this for questions like 'who owes us money', 'how much credit is outstanding', or 'how much credit was paid back this month'.",
+        description: "Admin-only Return goods in Credit History restores unpaid units to original stock at original sale prices and reduces sale totals and credit; it is not a repayment. Returns are recorded in stock_movements and activity_log. Who owes us money: every customer with an outstanding credit balance (largest first), the total owed, and credit repayments received over an optional date range. Use this for questions like 'who owes us money', 'how much credit is outstanding', or 'how much credit was paid back this month'.",
         input_schema: {
             type: 'object',
             properties: {

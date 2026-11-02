@@ -151,6 +151,7 @@ function renderCreditHistoryBody() {
                 <td><div class="action-cell">
                     ${isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="openCreditItemEditor(${entry.id})">Edit</button>` : ''}
                     <button class="btn btn-secondary btn-sm" onclick="printInvoiceByNo('${escHtml(entry.invoice_no || entry.receipt_no)}')">🧾 Invoice</button>
+                    ${isAdmin() && Number(entry.unpaid_amount) > 0 && entry.qty > 0 ? `<button class="btn btn-secondary btn-sm" onclick="returnCreditGoods(${entry.id})">↩️ Return goods</button>` : ''}
                     ${canDeleteSale ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : ''}
                 </div></td>
             </tr>`;
@@ -204,6 +205,28 @@ async function saveCreditItem() {
         _savingCreditItem = false;
         if (button) button.disabled = false;
     }
+}
+
+// Quantities determine the credit reduction using the original sale price.
+function returnCreditGoods(saleId) {
+    if (!isAdmin() || !_activeHistoryCustomerId) return;
+    const entry = _activeHistoryData?.timeline.find(row => row.type === 'sale' && row.id === saleId);
+    if (!entry) return;
+    const max = Math.min(entry.qty, Math.floor((Number(entry.unpaid_amount) + 0.000001) / Number(entry.unit_price)));
+    if (max < 1) { showToast('The unpaid balance is less than one unit. A refund is required.', 'error'); return; }
+    const value = window.prompt(`Return ${entry.product_name}: how many units? Maximum ${max}. Original unit price: ${formatCurrency(entry.unit_price)}.`);
+    if (value === null) return;
+    const qty = Number(value);
+    if (!Number.isSafeInteger(qty) || qty < 1 || qty > max) { showToast('Enter a valid whole number of units.', 'error'); return; }
+    const customerId = _activeHistoryCustomerId;
+    showConfirm('Return credit goods', `Return ${qty} units to the original shop and reduce this credit by ${formatCurrency(qty * Number(entry.unit_price))}? This is a goods return, not a payment.`, async () => {
+        try {
+            await api.post(`/api/customers/${customerId}/credit-returns/${saleId}`, { qty, expected_qty: entry.qty });
+            showToast('Stock restored and credit reduced.', 'success');
+            await reloadCreditCustomers();
+            await openCreditHistory(customerId);
+        } catch (err) { showToast(err.message, 'error'); }
+    });
 }
 
 // Reversing works the same whether the payment was made moments ago or months ago —
