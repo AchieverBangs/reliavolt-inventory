@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>try{if(localStorage.getItem('rv_theme')=== 'dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=JetBrains+Mono:wght@500;600;700&display=swap">
+    <title>Credit — Reliavolt Supply</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="logo">
+                <img src="images/logo.svg" class="logo-img" alt="Reliavolt Supply">
+                <div class="logo-text">
+                    <span class="logo-title">Reliavolt</span>
+                    <span class="logo-sub">Supply</span>
+                </div>
+            </a>
+            <button class="sidebar-close" id="sidebarClose">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+<a href="deposits.html" class="nav-item nav-deposits"><span class="nav-icon">&#127974;</span><span class="nav-label">Deposits</span></a>
+
+            <a href="inventory.html" class="nav-item">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Inventory</span>
+            </a>
+            <a href="sales.html" class="nav-item">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            <a href="credit.html" class="nav-item active">
+                <span class="nav-icon">📒</span>
+                <span class="nav-label">Credit</span>
+            </a>
+            <a href="delivery.html" class="nav-item">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-label">Delivery</span>
+            </a>
+            <a href="users.html" class="nav-item nav-admin">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="shops.html" class="nav-item nav-admin">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">Shops</span>
+            </a>
+            <a href="system-logs.html" class="nav-item nav-admin">
+                <span class="nav-icon">🗂️</span>
+                <span class="nav-label">System Logs</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="pre-inventory.html" class="nav-item nav-admin"><span class="nav-icon">&#128674;</span><span class="nav-label">Pre-inventory</span></a>
+            <a href="expenditures.html" class="nav-item"><span class="nav-icon">&#128184;</span><span class="nav-label">Expenditure</span></a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="page-title">Credit</h1>
+            </div>
+            <div class="header-right">
+                <span class="header-date" id="currentDate"></span>
+                <div class="user-badge">
+                    <div class="user-avatar" id="userAvatar">AD</div>
+                    <span id="currentUser">Admin</span>
+                </div>
+                <button class="btn-logout-header" id="logoutBtn" title="Logout">⏻ Logout</button>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="card summary-card">
+                    <div class="summary-icon">📒</div>
+                    <div>
+                        <div class="summary-label">Customers Owing</div>
+                        <div class="summary-value" id="totalOwingCount">0</div>
+                    </div>
+                </div>
+                <div class="card summary-card">
+                    <div class="summary-icon">💸</div>
+                    <div>
+                        <div class="summary-label">Total Outstanding</div>
+                        <div class="summary-value-sm" id="totalOutstanding">Le 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="page-toolbar">
+                <div class="toolbar-group">
+                    <div class="search-bar search-wide">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchCreditCustomer" placeholder="Search customers...">
+                    </div>
+                    <select id="creditStatusFilter" aria-label="Credit account status">
+                        <option value="outstanding">Outstanding Credit</option>
+                        <option value="paid">Past Credit — Fully Paid</option>
+                        <option value="all">All Credit History</option>
+                    </select>
+                    <button class="btn btn-secondary" id="refreshCreditBtn">Refresh</button>
+                </div>
+                <span style="font-size:0.8rem;color:var(--text-light);">Choose Past Credit or All Credit History, then History to see past credit sales and payments, including fully paid accounts.</span>
+            </div>
+
+            <!-- Credit Table -->
+            <div class="card">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th class="nav-admin hidden">Shop</th>
+                                <th>Amount Owed</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="creditTableBody">
+                            <tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📒</span><p>No one currently owes credit.</p></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Record Payment</h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:0.9rem;color:var(--text-light);margin-bottom:1rem;">
+                <strong id="paymentCustomerName">—</strong> currently owes
+                <strong id="paymentCurrentBalance" style="color:#dc2626;">Le 0</strong>
+            </p>
+            <div class="form-group">
+                <label class="form-label" for="paymentAmount">Amount Paid *</label>
+                <input type="number" class="form-control" id="paymentAmount" min="0" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="paymentDate">Date <span style="color:var(--text-light);font-weight:400;">(backdate if it happened earlier)</span></label>
+                <input type="date" class="form-control" id="paymentDate">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="paymentNote">Note <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                <input type="text" class="form-control" id="paymentNote" placeholder="e.g. Paid in cash at shop">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Cancel</button>
+            <button class="btn btn-primary" id="savePaymentBtn">💾 Save Payment</button>
+        </div>
+    </div>
+</div>
+
+<!-- Credit History Modal -->
+<div class="modal-overlay" id="creditHistoryModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Credit History — <span id="historyCustName">—</span></h2>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:0.9rem;margin-bottom:1rem;">Current balance: <strong id="historyCustBalance" style="color:#dc2626;">Le 0</strong></p>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Details</th>
+                            <th>Amount</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="creditHistoryBody">
+                        <tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📒</span><p>No credit history.</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="printCreditHistoryBtn">🖨️ Print</button>
+            <button class="btn btn-secondary modal-close">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI Chat Widget -->
+<button class="ai-chat-bubble hidden" id="aiChatBubble" aria-label="Ask Reliavolt" title="Ask Reliavolt">🤖</button>
+<div class="ai-chat-panel" id="aiChatPanel">
+    <div class="ai-chat-header">
+        <span>🤖 Ask Reliavolt</span>
+        <button class="ai-chat-close" id="aiChatClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="ai-chat-messages" id="aiChatMessages">
+        <div class="ai-chat-msg ai-chat-msg-bot">Hi! Ask me about stock, sales, commission, or how to use the system.</div>
+    </div>
+    <form class="ai-chat-input-row" id="aiChatForm">
+        <input type="text" id="aiChatInput" placeholder="Ask a question..." autocomplete="off">
+        <button type="submit" id="aiChatSend" aria-label="Send">&#10148;</button>
+    </form>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/ai-chat.js"></script>
+<script src="js/invoice.js"></script>
+<script src="js/credit.js?v=20261102-history"></script>
+</body>
+</html>

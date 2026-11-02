@@ -45,12 +45,15 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
-// GET /api/customers/credit — customers currently owing money (shop-scoped unless Admin)
+// GET /api/customers/credit — current balances by default; ?history=1 includes
+// settled accounts with credit sales or repayments. Shop scope applies to both.
 router.get('/credit', verifyToken, async (req, res) => {
     try {
         let query = `SELECT c.*, s.name AS shop_name FROM customers c
                       LEFT JOIN shops s ON s.id = c.shop_id
-                      WHERE c.credit_balance > 0`;
+                      WHERE ${req.query.history === '1' ? `(c.credit_balance > 0
+                          OR EXISTS (SELECT 1 FROM sales cs WHERE cs.customer_id = c.id AND cs.credit_amount > 0)
+                          OR EXISTS (SELECT 1 FROM credit_payments cp WHERE cp.customer_id = c.id))` : 'c.credit_balance > 0'}`;
         const vals = [];
 
         if (req.user.role === 'Admin') {

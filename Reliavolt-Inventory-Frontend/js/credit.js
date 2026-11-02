@@ -10,15 +10,16 @@ function renderCreditTable(filter = '') {
     if (!tbody) return;
 
     const admin = isAdmin();
+    const status = document.getElementById('creditStatusFilter')?.value || 'outstanding';
     const filtered = _creditCustomers.filter(c =>
-        !filter ||
+        (status === 'all' || (status === 'paid' ? Number(c.credit_balance) <= 0 : Number(c.credit_balance) > 0)) && (!filter ||
         c.name.toLowerCase().includes(filter) ||
-        (c.phone || '').includes(filter)
+        (c.phone || '').includes(filter))
     );
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="${admin ? 5 : 4}">
-            <div class="empty-state"><span class="empty-icon">📒</span><p>${_creditCustomers.length ? 'No matching customers.' : 'No one currently owes credit.'}</p></div>
+            <div class="empty-state"><span class="empty-icon">📒</span><p>No matching credit accounts. Try another status or search.</p></div>
         </td></tr>`;
         return;
     }
@@ -28,10 +29,10 @@ function renderCreditTable(filter = '') {
             <td><strong>${escHtml(c.name)}</strong></td>
             <td>${escHtml(c.phone || '—')}</td>
             ${admin ? `<td><span class="badge badge-secondary">${escHtml(c.shop_name || '—')}</span></td>` : ''}
-            <td><strong style="color:#dc2626;">${formatCurrency(c.credit_balance)}</strong></td>
+            <td>${Number(c.credit_balance) > 0 ? `<strong style="color:#dc2626;">${formatCurrency(c.credit_balance)}</strong>` : '<span class="badge badge-success">Fully Paid</span>'}</td>
             <td>
                 <div class="action-cell">
-                    <button class="btn btn-success btn-sm" onclick="openPaymentModal(${c.id})">💵 Record Payment</button>
+                    ${Number(c.credit_balance) > 0 ? `<button class="btn btn-success btn-sm" onclick="openPaymentModal(${c.id})">💵 Record Payment</button>` : ''}
                     <button class="btn btn-secondary btn-sm" onclick="openCreditHistory(${c.id})">📋 History</button>
                 </div>
             </td>
@@ -39,17 +40,17 @@ function renderCreditTable(filter = '') {
 }
 
 function updateCreditSummary() {
-    setEl('totalOwingCount', _creditCustomers.length);
+    setEl('totalOwingCount', _creditCustomers.filter(c => Number(c.credit_balance) > 0).length);
     const total = _creditCustomers.reduce((sum, c) => sum + Number(c.credit_balance), 0);
     setEl('totalOutstanding', formatCurrency(total));
 }
 
 async function reloadCreditCustomers() {
     try {
-        _creditCustomers = await api.get('/api/customers/credit');
+        const customers = await api.get('/api/customers/credit?history=1');
+        _creditCustomers = customers;
     } catch (err) {
         showToast('Failed to load credit customers: ' + err.message, 'error');
-        _creditCustomers = [];
     }
     renderCreditTable(document.getElementById('searchCreditCustomer')?.value.toLowerCase().trim() || '');
     updateCreditSummary();
@@ -58,7 +59,7 @@ async function reloadCreditCustomers() {
 // ===== RECORD PAYMENT =====
 function openPaymentModal(id) {
     const customer = _creditCustomers.find(c => c.id === id);
-    if (!customer) return;
+    if (!customer || Number(customer.credit_balance) <= 0) return;
 
     _activePaymentCustomerId = id;
     setEl('paymentCustomerName', customer.name);
@@ -114,6 +115,8 @@ async function openCreditHistory(id) {
 
     try {
         const data = await api.get(`/api/customers/${id}/credit-history`);
+        if (_activeHistoryCustomerId !== id) return;
+        setEl('historyCustBalance', formatCurrency(data.customer.credit_balance));
         _activeHistoryData = { customer: data.customer, timeline: data.timeline };
         renderCreditHistoryBody();
     } catch (err) {
@@ -278,5 +281,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderCreditTable(e.target.value.toLowerCase().trim());
     });
     document.getElementById('savePaymentBtn')?.addEventListener('click', savePayment);
+    document.getElementById('creditStatusFilter')?.addEventListener('change', () => {
+        renderCreditTable(document.getElementById('searchCreditCustomer')?.value.toLowerCase().trim() || '');
+    });
+    document.getElementById('refreshCreditBtn')?.addEventListener('click', reloadCreditCustomers);
     document.getElementById('printCreditHistoryBtn')?.addEventListener('click', printCreditHistory);
 });
