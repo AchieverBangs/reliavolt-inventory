@@ -1,3 +1,4 @@
+const { commissionEarnings } = require('../services/commissionEarnings');
 const express = require('express');
 const pool    = require('../db/pool');
 const { verifyToken, requireRole } = require('../middleware/auth');
@@ -13,16 +14,7 @@ const SALE_ROLES = ['Admin', 'Manager', 'Cashier'];
 
 // GET /api/commission/pending-mine — past (already-ended) periods where the caller earned
 // commission but hasn't confirmed receiving it yet.
-// Uses earned_commission (not the raw commission column) throughout this file, so a
-// credit sale only counts once it's actually been paid off — see schema.sql. Buckets by
-// commission_date, not sale_date, so a sale backdated into an already-admin-confirmed
-// month counts toward the month it was actually entered instead (see
-// resolveCommissionDate in sales.js) rather than silently reopening that old month.
-// Known limitation: a credit sale's commission still releases against its own
-// commission_date as credit_amount_paid goes up, so if a credit sale from an
-// already-confirmed month gets paid down later, that newly-earned slice doesn't reopen
-// the old settlement or trigger a fresh confirm prompt. Acceptable for now — the common
-// case is paying off a credit sale within the same month or two.
+// Repayment slices use payment dates from September 2026, including historical payments.
 router.get('/pending-mine', verifyToken, requireRole(...SALE_ROLES), async (req, res) => {
     try {
         const cur = periodOf(new Date());
@@ -32,7 +24,7 @@ router.get('/pending-mine', verifyToken, requireRole(...SALE_ROLES), async (req,
                 SELECT EXTRACT(YEAR FROM ${periodExpr('commission_date')})::int AS year,
                        EXTRACT(MONTH FROM ${periodExpr('commission_date')})::int AS month,
                        SUM(earned_commission) AS total
-                FROM sales
+                FROM ${commissionEarnings} AS earnings
                 WHERE commission_user_id = $1
                   AND commission_date < $2::date
                 GROUP BY 1, 2
@@ -61,7 +53,7 @@ router.post('/confirm-mine', verifyToken, requireRole(...SALE_ROLES), async (req
     }
     try {
         const { rows: totalRows } = await pool.query(
-            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
+            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM ${commissionEarnings} AS earnings
              WHERE commission_user_id = $1
                AND commission_date >= $2::date AND commission_date < $3::date`,
             [req.user.id, periodRange(year, month).start, periodRange(year, month).end]
@@ -97,7 +89,7 @@ router.get('/pending-admin', verifyToken, requireRole('Admin'), async (req, res)
                        EXTRACT(YEAR FROM ${periodExpr('commission_date')})::int AS year,
                        EXTRACT(MONTH FROM ${periodExpr('commission_date')})::int AS month,
                        SUM(earned_commission) AS total
-                FROM sales
+                FROM ${commissionEarnings} AS earnings
                 WHERE commission_user_id IS NOT NULL
                   AND commission_date < $1::date
                 GROUP BY 1, 2, 3
@@ -128,7 +120,7 @@ router.post('/:userId/confirm-admin', verifyToken, requireRole('Admin'), async (
     }
     try {
         const { rows: totalRows } = await pool.query(
-            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM sales
+            `SELECT COALESCE(SUM(earned_commission), 0) AS total FROM ${commissionEarnings} AS earnings
              WHERE commission_user_id = $1
                AND commission_date >= $2::date AND commission_date < $3::date`,
             [userId, periodRange(year, month).start, periodRange(year, month).end]

@@ -176,8 +176,8 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS credit_amount_paid NUMERIC(14,2) NOT 
 -- actually comes in, not upfront on a balance the customer hasn't paid yet. Recomputes
 -- automatically whenever commission, total, credit_amount, or credit_amount_paid change
 -- (e.g. the product-edit backfill below, or a new credit payment), so nothing else needs
--- to keep it in sync by hand — every commission total elsewhere should SUM this column,
--- not the raw `commission` column.
+-- to keep it in sync by hand. This is the lifetime earned total; period reports use
+-- services/commissionEarnings.js to split repayments into their payment periods.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS earned_commission NUMERIC(14,2)
     GENERATED ALWAYS AS (commission * LEAST(1, (total - credit_amount + credit_amount_paid) / NULLIF(total, 0))) STORED;
 

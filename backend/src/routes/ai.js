@@ -1,3 +1,5 @@
+const { commissionEarnings } = require('../services/commissionEarnings');
+const { periodRange } = require('../services/commissionPeriod');
 const express   = require('express');
 const rateLimit = require('express-rate-limit');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -403,22 +405,20 @@ async function runTool(name, input, req) {
         }
 
         case 'get_commission_summary': {
-            // earned_commission (not the raw commission column) — on a credit sale,
-            // commission builds up only as the customer actually pays it down. Bucketed
-            // by commission_date, not sale_date — see resolveCommissionDate in sales.js.
+            // Payment-date slices share the dashboard and settlement calculation.
             if (!admin) {
                 const { rows } = await pool.query(
-                    `SELECT COALESCE(SUM(earned_commission), 0) AS total_commission, COUNT(*)::int AS sales_count
-                     FROM sales
+                    `SELECT COALESCE(SUM(earned_commission), 0) AS total_commission, COUNT(DISTINCT id)::int AS sales_count
+                     FROM ${commissionEarnings} AS earnings
                      WHERE commission_user_id = $1 AND commission_date >= $2 AND commission_date < ($3::date + INTERVAL '1 day')`,
                     [req.user.id, input.from, input.to]
                 );
                 return { staff: req.user.name, ...rows[0] };
             }
             const { rows } = await pool.query(
-                `SELECT u.name, COALESCE(SUM(s.earned_commission), 0) AS total_commission, COUNT(s.id)::int AS sales_count
+                `SELECT u.name, COALESCE(SUM(s.earned_commission), 0) AS total_commission, COUNT(DISTINCT s.id)::int AS sales_count
                  FROM users u
-                 LEFT JOIN sales s ON s.commission_user_id = u.id
+                 LEFT JOIN ${commissionEarnings} s ON s.commission_user_id = u.id
                      AND s.commission_date >= $1 AND s.commission_date < ($2::date + INTERVAL '1 day')
                  WHERE ($3::text IS NULL OR u.name ILIKE $3)
                  GROUP BY u.name
@@ -694,15 +694,23 @@ async function runTool(name, input, req) {
         }
 
         case 'get_commission_settlement_status': {
+            const range = periodRange(input.year, input.month);
             const { rows } = await pool.query(
-                `SELECT u.name, cs.total_commission,
+                `SELECT u.name, COALESCE(e.total, 0) AS total_commission,
+                        cs.total_commission AS confirmed_total_commission,
                         (cs.staff_confirmed_at IS NOT NULL) AS staff_confirmed_received,
                         (cs.admin_confirmed_at IS NOT NULL) AS admin_confirmed_paid
                  FROM commission_settlements cs
                  JOIN users u ON u.id = cs.user_id
+                 LEFT JOIN (
+                     SELECT commission_user_id, SUM(earned_commission) AS total
+                     FROM ${commissionEarnings} AS earnings
+                     WHERE commission_date >= $3::date AND commission_date < $4::date
+                     GROUP BY commission_user_id
+                 ) e ON e.commission_user_id = cs.user_id
                  WHERE cs.year = $1 AND cs.month = $2
                  ORDER BY u.name`,
-                [input.year, input.month]
+                [input.year, input.month, range.start, range.end]
             );
             return rows.length ? rows : { note: 'No settlement records for that month yet — nobody has confirmed received or paid.' };
         }
@@ -744,6 +752,7 @@ You can help with three kinds of requests:
    - Inventory: add/edit products (Admin), import from Excel/CSV, each product has a "History" button showing every stock addition and sale with running totals.
    - Sales: record a sale (pick product + qty, optionally backdate it with "Sale Date" if it happened earlier), edit an already-recorded sale's date/customer/payment method, paginated Recent Sales list with a date filter.
    - Reports: Daily/Weekly/Monthly sales, Profit (Admin), Low Stock, Stock (added/sold/remaining per product, printable to PDF via the browser's print dialog), Chart, By Shop.
+   - Credit repayment commission: from September 2026 onward, partial and full repayments earn proportional commission in the commission period of the recorded payment date, including September and October history. The original salesperson earns it, not the payment collector.
    - Commission: a flat amount per unit sold, set per product, optionally assigned to one designated staff member who always earns it regardless of who processes the sale; commission months were calendar months up to August 2026; from then on they run from the 15th to the 14th of the next month, with the "September 2026" commission month covering 1 Sep – 14 Oct 2026 as the changeover (October 2026 = 15 Oct – 14 Nov, and so on); once a commission month ends, both the staff member and an Admin confirm it separately (received / paid).
    - Settings, Users and Shops (Admin only), System Logs (Admin only, full activity audit trail).
 
