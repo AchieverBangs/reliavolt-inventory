@@ -3,6 +3,8 @@ let _creditCustomers = [];
 let _activePaymentCustomerId = null;
 let _activeHistoryData = null; // { customer, timeline } for the currently-open history modal, used by printCreditHistory()
 let _activeHistoryCustomerId = null;
+let _editingCreditItemId = null;
+let _savingCreditItem = false;
 
 // ===== RENDER =====
 function renderCreditTable(filter = '') {
@@ -147,6 +149,7 @@ function renderCreditHistoryBody() {
                 <td>${escHtml(entry.product_name)} &times; ${entry.qty} <span style="color:var(--text-light);">(${escHtml(entry.receipt_no)})</span></td>
                 <td style="color:#dc2626;">+${formatCurrency(entry.amount)}</td>
                 <td><div class="action-cell">
+                    ${isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="openCreditItemEditor(${entry.id})">Edit</button>` : ''}
                     <button class="btn btn-secondary btn-sm" onclick="printInvoiceByNo('${escHtml(entry.invoice_no || entry.receipt_no)}')">🧾 Invoice</button>
                     ${canDeleteSale ? `<button class="btn btn-danger btn-sm" onclick="deleteCreditSale(${entry.id})">🗑️ Delete</button>` : ''}
                 </div></td>
@@ -160,6 +163,47 @@ function renderCreditHistoryBody() {
             <td>${canReversePayment ? `<button class="btn btn-danger btn-sm" onclick="reversePayment(${entry.id})">↩️ Reverse</button>` : '—'}</td>
         </tr>`;
     }).join('');
+}
+
+// Admin can correct one line without deleting its invoice or payment history.
+function openCreditItemEditor(id) {
+    if (!isAdmin() || _savingCreditItem) return;
+    const item = _activeHistoryData?.timeline.find(e => e.type === 'sale' && e.id === id);
+    if (!item) return;
+    _editingCreditItemId = id;
+    setEl('editCreditProduct', item.product_name);
+    setEl('editCreditReceipt', item.receipt_no);
+    setEl('editCreditPaid', formatCurrency(Number(item.total) - Number(item.amount) + Number(item.credit_amount_paid)));
+    document.getElementById('editCreditQty').value = item.qty;
+    document.getElementById('editCreditPrice').value = Number(item.unit_price).toFixed(2);
+    openModal('editCreditItemModal');
+}
+
+async function saveCreditItem() {
+    if (!isAdmin() || !_editingCreditItemId || !_activeHistoryCustomerId || _savingCreditItem) return;
+    const qty = Number(document.getElementById('editCreditQty').value);
+    const unit_price = document.getElementById('editCreditPrice').value;
+    if (!Number.isInteger(qty) || qty <= 0 || !/^\d+(\.\d{1,2})?$/.test(unit_price) || Number(unit_price) <= 0) {
+        showToast('Enter a positive whole quantity and unit price with at most two decimal places.', 'error');
+        return;
+    }
+    const customerId = _activeHistoryCustomerId;
+    const button = document.getElementById('saveCreditItemBtn');
+    _savingCreditItem = true;
+    if (button) button.disabled = true;
+    try {
+        await api.put(`/api/customers/${customerId}/credit-items/${_editingCreditItemId}`, { qty, unit_price });
+        closeModal('editCreditItemModal');
+        showToast('Credit item updated.', 'success');
+        _editingCreditItemId = null;
+        await reloadCreditCustomers();
+        if (_activeHistoryCustomerId === customerId) await openCreditHistory(customerId);
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        _savingCreditItem = false;
+        if (button) button.disabled = false;
+    }
 }
 
 // Reversing works the same whether the payment was made moments ago or months ago —
@@ -281,6 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderCreditTable(e.target.value.toLowerCase().trim());
     });
     document.getElementById('savePaymentBtn')?.addEventListener('click', savePayment);
+    document.getElementById('saveCreditItemBtn')?.addEventListener('click', saveCreditItem);
     document.getElementById('creditStatusFilter')?.addEventListener('change', () => {
         renderCreditTable(document.getElementById('searchCreditCustomer')?.value.toLowerCase().trim() || '');
     });

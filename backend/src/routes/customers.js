@@ -52,7 +52,7 @@ router.get('/credit', verifyToken, async (req, res) => {
         let query = `SELECT c.*, s.name AS shop_name FROM customers c
                       LEFT JOIN shops s ON s.id = c.shop_id
                       WHERE ${req.query.history === '1' ? `(c.credit_balance > 0
-                          OR EXISTS (SELECT 1 FROM sales cs WHERE cs.customer_id = c.id AND cs.credit_amount > 0)
+                          OR EXISTS (SELECT 1 FROM sales cs WHERE cs.customer_id = c.id AND (cs.credit_amount > 0 OR cs.payment_method = 'Credit'))
                           OR EXISTS (SELECT 1 FROM credit_payments cp WHERE cp.customer_id = c.id))` : 'c.credit_balance > 0'}`;
         const vals = [];
 
@@ -101,8 +101,9 @@ router.get('/:id/credit-history', verifyToken, async (req, res) => {
         }
 
         const { rows: sales } = await pool.query(
-            `SELECT 'sale' AS type, id, receipt_no, COALESCE(invoice_no, receipt_no) AS invoice_no, product_name, qty, credit_amount AS amount, sale_date AS at
-             FROM sales WHERE customer_id = $1 AND credit_amount > 0`,
+            `SELECT 'sale' AS type, id, receipt_no, COALESCE(invoice_no, receipt_no) AS invoice_no, product_name, qty,
+                    unit_price, total, credit_amount_paid, credit_amount AS amount, sale_date AS at
+             FROM sales WHERE customer_id = $1 AND (credit_amount > 0 OR payment_method = 'Credit')`,
             [req.params.id]
         );
         const { rows: payments } = await pool.query(
@@ -118,6 +119,74 @@ router.get('/:id/credit-history', verifyToken, async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// Admin correction of one credit invoice line. Preserve the original deposit and
+// repayment allocations; a correction must never turn collected money into an
+// untracked overpayment. Lock the customer before the sale, as repayments do.
+router.put('/:id/credit-items/:saleId', verifyToken, requireRole('Admin'), async (req, res) => {
+    const qty = Number(req.body.qty);
+    const priceText = String(req.body.unit_price ?? '');
+    const priceCents = Math.round(Number(priceText) * 100);
+    if (!Number.isSafeInteger(qty) || qty <= 0 || qty > 2147483647 ||
+        !/^\d+(\.\d{1,2})?$/.test(priceText) || !Number.isSafeInteger(priceCents) || priceCents <= 0 ||
+        !Number.isSafeInteger(qty * priceCents) || qty * priceCents > 99999999999999) {
+        return res.status(400).json({ error: 'Enter a positive whole quantity and a positive unit price with at most two decimal places' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const { rows: customers } = await client.query(
+            'SELECT id, credit_balance FROM customers WHERE id = $1 FOR UPDATE', [req.params.id]);
+        if (!customers[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Customer not found' }); }
+        const { rows: sales } = await client.query(
+            'SELECT * FROM sales WHERE id = $1 AND customer_id = $2 FOR UPDATE', [req.params.saleId, req.params.id]);
+        const sale = sales[0];
+        if (!sale || (Number(sale.credit_amount) <= 0 && sale.payment_method !== 'Credit')) {
+            await client.query('ROLLBACK'); return res.status(404).json({ error: 'Credit item not found' });
+        }
+        const totalCents = qty * priceCents;
+        const oldTotalCents = Math.round(Number(sale.total) * 100);
+        const depositCents = oldTotalCents - Math.round(Number(sale.credit_amount) * 100);
+        const paidCents = Math.round(Number(sale.credit_amount_paid) * 100);
+        if (totalCents < depositCents + paidCents) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'The item total cannot be less than its deposit and repayments. Reverse the relevant payment first.' });
+        }
+        const stockChange = sale.qty - qty;
+        if (stockChange !== 0) {
+            const { rows: products } = await client.query('SELECT id, quantity FROM products WHERE id = $1 FOR UPDATE', [sale.product_id]);
+            if (!products[0]) {
+                await client.query('ROLLBACK'); return res.status(400).json({ error: 'The original product no longer exists; its quantity cannot be changed' });
+            }
+            const stock = products[0].quantity + stockChange;
+            if (stock < 0 || stock > 2147483647) {
+                await client.query('ROLLBACK'); return res.status(400).json({ error: 'Insufficient stock or invalid resulting stock quantity' });
+            }
+            await client.query('UPDATE products SET quantity = $1 WHERE id = $2', [stock, sale.product_id]);
+            await client.query(
+                `INSERT INTO stock_movements (product_id, type, qty_change, balance_after, note, user_id, sale_id)
+                 VALUES ($1, 'adjustment', $2, $3, $4, $5, $6)`,
+                [sale.product_id, stockChange, stock, `Edited credit item, receipt ${sale.receipt_no}: quantity ${sale.qty} to ${qty}`, req.user.id, sale.id]);
+        }
+        // Use the captured sale cost and commission per unit, not today's product rates.
+        const { rows: updated } = await client.query(
+            `UPDATE sales SET qty=$1::int, unit_price=$2, total=$3::numeric,
+                profit=$3::numeric - unit_cost * $1::int, commission=ROUND(commission / qty * $1::int, 2),
+                credit_amount=$4 WHERE id=$5 RETURNING *`,
+            [qty, (priceCents / 100).toFixed(2), (totalCents / 100).toFixed(2),
+                ((totalCents - depositCents) / 100).toFixed(2), sale.id]);
+        await client.query('UPDATE customers SET credit_balance = credit_balance + $1 WHERE id = $2',
+            [((totalCents - oldTotalCents) / 100).toFixed(2), customers[0].id]);
+        await client.query('COMMIT');
+        logActivity(req, 'update', 'sale', sale.id,
+            `Edited credit item ${sale.receipt_no}: qty ${sale.qty} to ${qty}, unit price ${sale.unit_price} to ${(priceCents / 100).toFixed(2)}`);
+        res.json(updated[0]);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Unable to update credit item' });
+    } finally { client.release(); }
 });
 
 // POST /api/customers/:id/credit-payments  { amount, note?, paid_date? }
